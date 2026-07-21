@@ -346,7 +346,7 @@ export class StartFlow {
 // Coached walkthrough shown before every real ride. Big, few words, narrator
 // reads each step.
 // Returns a promise that resolves when the child taps "Let's ride!".
-export function showWalkthrough({ narrator, sfx } = {}) {
+export function showWalkthrough({ narrator, sfx, mobile = false } = {}) {
   ensureStyles();
   return new Promise((resolve) => {
     const root = document.createElement('div');
@@ -355,8 +355,10 @@ export function showWalkthrough({ narrator, sfx } = {}) {
 
     const steps = [
       { glyph: '🐱', big: 'CAT', tip: 'See a word? <b>Say it out loud!</b>', say: 'When you see a word, say it out loud!' },
-      { glyph: '⬅ ➡', big: '', tip: 'Say <b>“left”</b> or <b>“right”</b> to turn.', say: 'Say left, or right, to turn!' },
-      { glyph: '🐢 💨', big: '', tip: 'Say <b>“slower”</b> or <b>“faster”</b> to change speed.', say: 'Say slower, or faster, to change your speed.' },
+      ...(!mobile ? [
+        { glyph: '⬅ ➡', big: '', tip: 'Say <b>“left”</b> or <b>“right”</b> to turn.', say: 'Say left, or right, to turn!' },
+        { glyph: '🐢 💨', big: '', tip: 'Say <b>“slower”</b> or <b>“faster”</b> to change speed.', say: 'Say slower, or faster, to change your speed.' },
+      ] : []),
       { glyph: '🔴', big: 'STOP', tip: 'At a red light, say <b>“stop”</b>. Green means <b>“go!”</b>', say: 'At a red light say stop. Green means go!' },
     ];
     let i = 0;
