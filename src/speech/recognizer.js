@@ -1,8 +1,9 @@
 import { isMobileRuntime } from '../core/mobile.js';
 
 // Web Speech wrapper: continuous en-SG recognition on desktop and short,
-// automatically renewed listening sessions on mobile. The latter avoids the
-// long-lived sessions Chrome mobile tends to suspend after lifecycle changes.
+// automatically renewed listening sessions on mobile. Mobile creates a fresh
+// browser recognizer for each session so a stale Chrome service cannot leave
+// the game silently deaf.
 
 export class SpeechManager {
   constructor({ lang = 'en-SG' } = {}) {
@@ -17,98 +18,133 @@ export class SpeechManager {
     this.restartDelay = this.mobile ? 120 : 250;
     this.restartTimer = null;
     this.startWatchdog = null;
+    this.hasStarted = false;
     this.lastTranscript = '';
     this.lastTranscriptAt = 0;
-    const Ctor = window.SpeechRecognition || window.webkitSpeechRecognition;
-    this.available = !!Ctor;
+    this.Ctor = window.SpeechRecognition || window.webkitSpeechRecognition;
+    this.available = !!this.Ctor;
     this.simulated = false;
+
     if (this.available) {
-      this.rec = new Ctor();
-      this.rec.continuous = !this.mobile;
-      // Mobile interim guesses are quick but frequently wrong for short child
-      // utterances. Final-only results trade a small pause for much better
-      // intent accuracy; desktop keeps its existing interim behaviour.
-      this.rec.interimResults = !this.mobile;
-      this.rec.lang = lang;
-      this.rec.maxAlternatives = this.mobile ? 1 : 4;
-      this.rec.onspeechstart = () => {
-        if (this.mobile && this.wanted && !this.paused && this.holds.size === 0) {
-          this.#emit('activity');
-        }
-      };
-      this.rec.onresult = (e) => {
-        if (!this.wanted || this.paused || this.holds.size > 0 || document.hidden) return;
-        for (let i = e.resultIndex; i < e.results.length; i++) {
-          const res = e.results[i];
-          for (let a = 0; a < Math.min(res.length, this.mobile ? 1 : 3); a++) {
-            const alt = res[a];
-            if (alt.transcript && alt.transcript.trim()) {
-              const text = alt.transcript.trim();
-              const now = performance.now();
-              if (this.mobile
-                && text.toLowerCase() === this.lastTranscript
-                && now - this.lastTranscriptAt < 700) continue;
-              this.lastTranscript = text.toLowerCase();
-              this.lastTranscriptAt = now;
-              if (this.mobile) this.#emit('voice');
-              this.#emit('heard', {
-                text,
-                isFinal: res.isFinal,
-                confidence: alt.confidence ?? 0.5,
-              });
-            }
-          }
-        }
-      };
-      this.rec.onend = () => {
-        this.running = false;
-        this.starting = false;
-        this.#clearWatchdog();
-        this.#scheduleRestart(this.restartDelay);
-        this.restartDelay = Math.min(2500, this.restartDelay * 1.4);
-      };
-      this.rec.onstart = () => {
-        this.starting = false;
-        this.#clearWatchdog();
-        if (!this.wanted || this.paused || this.holds.size > 0 || document.hidden) {
-          this.running = false;
-          try { this.rec.abort(); } catch { /* already idle */ }
-          return;
-        }
-        this.running = true;
-        this.restartDelay = this.mobile ? 120 : 250;
-        this.#emit('status', 'listening');
-      };
-      this.rec.onerror = (e) => {
-        this.running = false;
-        this.starting = false;
-        this.#clearWatchdog();
-        if (e.error === 'not-allowed' || e.error === 'service-not-allowed'
-          || e.error === 'language-not-supported') {
-          this.available = false;
-          this.#clearRestart();
-          this.#emit('mic-blocked');
-          return;
-        }
-        // `onend` normally follows recoverable errors. This timer is a
-        // fallback for mobile Chrome builds that occasionally omit it.
-        this.#scheduleRestart(e.error === 'no-speech' ? 120 : 300);
-      };
+      this.rec = this.#makeRecognizer();
 
       if (this.mobile) {
         document.addEventListener('visibilitychange', () => {
           if (document.hidden) {
             this.#clearRestart();
             this.#clearWatchdog();
+            const rec = this.rec;
             this.running = false;
             this.starting = false;
-            try { this.rec.abort(); } catch { /* already idle */ }
+            try { rec.abort(); } catch { /* already idle */ }
+            this.#renewRecognizer(rec);
           } else {
             this.#scheduleRestart(100);
           }
         });
       }
     }
+  }
+
+  #makeRecognizer() {
+    const rec = new this.Ctor();
+    rec.continuous = !this.mobile;
+    // Interim text removes the long end-of-speech wait on mobile. Callers use
+    // exact-only matching for provisional results; fuzzy matches still wait
+    // for a final transcript.
+    rec.interimResults = true;
+    rec.lang = this.lang;
+    rec.maxAlternatives = this.mobile ? 1 : 4;
+
+    rec.onspeechstart = () => {
+      if (this.rec !== rec) return;
+      if (this.mobile && this.wanted && !this.paused && this.holds.size === 0) {
+        this.#emit('activity');
+      }
+    };
+
+    rec.onresult = (e) => {
+      if (this.rec !== rec || !this.wanted || this.paused || this.holds.size > 0 || document.hidden) return;
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const res = e.results[i];
+        for (let a = 0; a < Math.min(res.length, this.mobile ? 1 : 3); a++) {
+          const alt = res[a];
+          if (!alt.transcript?.trim()) continue;
+          const text = alt.transcript.trim();
+          const normalized = text.toLowerCase();
+          const now = performance.now();
+          // Suppress repeated provisional guesses, but always allow the final
+          // version through after an interim result with the same text.
+          if (this.mobile && !res.isFinal
+            && normalized === this.lastTranscript
+            && now - this.lastTranscriptAt < 700) continue;
+          this.lastTranscript = normalized;
+          this.lastTranscriptAt = now;
+          if (this.mobile) this.#emit('voice');
+          this.#emit('heard', {
+            text,
+            isFinal: res.isFinal,
+            confidence: alt.confidence ?? 0.5,
+          });
+        }
+      }
+    };
+
+    rec.onend = () => {
+      if (this.rec !== rec) return;
+      this.running = false;
+      this.starting = false;
+      this.#clearWatchdog();
+      if (this.mobile && this.available) this.#renewRecognizer(rec);
+      this.#scheduleRestart(this.restartDelay);
+      this.restartDelay = Math.min(2500, this.restartDelay * 1.4);
+    };
+
+    rec.onstart = () => {
+      if (this.rec !== rec) return;
+      this.starting = false;
+      this.#clearWatchdog();
+      if (!this.wanted || this.paused || this.holds.size > 0 || document.hidden) {
+        this.running = false;
+        try { rec.abort(); } catch { /* already idle */ }
+        return;
+      }
+      this.running = true;
+      this.hasStarted = true;
+      this.restartDelay = this.mobile ? 120 : 250;
+      this.#emit('status', 'listening');
+    };
+
+    rec.onerror = (e) => {
+      if (this.rec !== rec) return;
+      this.running = false;
+      this.starting = false;
+      this.#clearWatchdog();
+      this.#emit('error', e.error);
+      if (e.error === 'not-allowed' || e.error === 'service-not-allowed'
+        || e.error === 'language-not-supported') {
+        this.available = false;
+        this.#clearRestart();
+        this.#emit('mic-blocked', e.error);
+        return;
+      }
+      // `onend` normally follows recoverable errors. Replace the mobile
+      // recognizer now so recovery also works on builds that omit `onend`.
+      if (this.mobile) this.#renewRecognizer(rec);
+      this.#scheduleRestart(e.error === 'no-speech' ? 120 : 300);
+    };
+
+    return rec;
+  }
+
+  #renewRecognizer(expected = this.rec) {
+    if (!this.available || !this.Ctor || this.rec !== expected) return;
+    expected.onstart = null;
+    expected.onend = null;
+    expected.onerror = null;
+    expected.onresult = null;
+    expected.onspeechstart = null;
+    this.rec = this.#makeRecognizer();
   }
 
   // QA harness. Injected utterances are ADDITIVE — the real recogniser keeps
@@ -121,35 +157,46 @@ export class SpeechManager {
     this.#emit('heard', { text, isFinal, confidence: 0.9, simulated: true });
   }
 
-  start() {
+  start({ immediate = false } = {}) {
     this.wanted = true;
     this.paused = false;
     if (this.simulated) this.#emit('status', 'listening');
-    this.#scheduleRestart(0);
+    if (this.mobile && immediate) {
+      this.#clearRestart();
+      this.#tryStart();
+    } else {
+      this.#scheduleRestart(0);
+    }
   }
 
   #tryStart() {
     if (!this.available || !this.wanted || this.paused || this.holds.size > 0
       || this.running || this.starting || document.hidden) return;
     this.starting = true;
+    const rec = this.rec;
     try {
-      this.rec.start();
-      if (this.mobile) {
+      this.#emit('status', 'starting');
+      rec.start();
+      if (this.mobile && this.starting && !this.running) {
+        // Chrome's first `onstart` waits until its permission prompt is
+        // accepted. Give an adult time to respond; later starts use a shorter
+        // watchdog and swap in a fresh recognizer if the service is stale.
+        const timeout = this.hasStarted ? 3500 : 15000;
         this.startWatchdog = setTimeout(() => {
-          if (!this.starting || this.running || this.paused) return;
+          if (this.rec !== rec || !this.starting || this.running || this.paused) return;
           this.starting = false;
-          try { this.rec.abort(); } catch { /* already idle */ }
-          this.#scheduleRestart(200);
-        }, 1800);
+          try { rec.abort(); } catch { /* already idle */ }
+          this.#renewRecognizer(rec);
+          this.#emit('status', 'reconnecting');
+          this.#scheduleRestart(250);
+        }, timeout);
       }
     } catch {
       this.starting = false;
       this.#clearWatchdog();
-      // A stale browser-side session can throw even though our `onend`
-      // already ran. Reset it on mobile, then keep retrying instead of
-      // silently leaving the microphone dead.
       if (this.mobile) {
-        try { this.rec.abort(); } catch { /* already idle */ }
+        try { rec.abort(); } catch { /* already idle */ }
+        this.#renewRecognizer(rec);
       }
       this.#scheduleRestart(this.restartDelay);
       this.restartDelay = Math.min(2500, this.restartDelay * 1.4);
@@ -181,7 +228,9 @@ export class SpeechManager {
     this.#clearRestart();
     this.#clearWatchdog();
     if (this.available && (this.running || this.starting)) {
-      try { this.rec.stop(); } catch { /* noop */ }
+      const rec = this.rec;
+      try { this.mobile ? rec.abort() : rec.stop(); } catch { /* noop */ }
+      if (this.mobile) this.#renewRecognizer(rec);
     }
     this.running = false;
     this.starting = false;
@@ -195,7 +244,9 @@ export class SpeechManager {
     this.#clearRestart();
     this.#clearWatchdog();
     if (this.available && (this.running || this.starting)) {
-      try { this.rec.abort(); } catch { /* already idle */ }
+      const rec = this.rec;
+      try { rec.abort(); } catch { /* already idle */ }
+      if (this.mobile) this.#renewRecognizer(rec);
     }
     this.running = false;
     this.starting = false;

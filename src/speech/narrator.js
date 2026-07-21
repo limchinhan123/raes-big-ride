@@ -23,24 +23,45 @@ export class Narrator {
   }
 
   say(text, { rate = 0.95, pitch = 1.12, interrupt = false } = {}) {
-    if (!this.enabled || this.muted) return;
-    if (interrupt) speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text);
-    if (this.voice) u.voice = this.voice;
-    u.rate = rate;
-    u.pitch = pitch;
-    u.volume = 0.95;
-    u.onstart = () => { this.speaking = true; this.#emit('start'); };
-    let finished = false;
-    const finish = () => {
-      if (finished) return;
-      finished = true;
-      this.speaking = false;
-      this.#emit('end');
-    };
-    u.onend = finish;
-    u.onerror = finish;
-    speechSynthesis.speak(u);
+    if (!this.enabled || this.muted) return Promise.resolve();
+    return new Promise((resolve) => {
+      if (interrupt) speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      if (this.voice) u.voice = this.voice;
+      u.rate = rate;
+      u.pitch = pitch;
+      u.volume = 0.95;
+      let finished = false;
+      let startTimer = null;
+      let completionTimer = null;
+      const finish = () => {
+        if (finished) return;
+        finished = true;
+        clearTimeout(startTimer);
+        clearTimeout(completionTimer);
+        this.speaking = false;
+        this.#emit('end');
+        resolve();
+      };
+      u.onstart = () => {
+        clearTimeout(startTimer);
+        this.speaking = true;
+        this.#emit('start');
+        completionTimer = setTimeout(() => {
+          try { speechSynthesis.cancel(); } catch { /* already stopped */ }
+          finish();
+        }, 8000);
+      };
+      u.onend = finish;
+      u.onerror = finish;
+      // If a mobile synthesis queue never starts this line, cancel the stale
+      // queue rather than letting it speak after recognition has begun.
+      startTimer = setTimeout(() => {
+        try { speechSynthesis.cancel(); } catch { /* already stopped */ }
+        finish();
+      }, 10000);
+      try { speechSynthesis.speak(u); } catch { finish(); }
+    });
   }
 
   on(event, fn) { (this.listeners[event] ??= []).push(fn); }
