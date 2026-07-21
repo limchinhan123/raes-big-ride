@@ -33,21 +33,24 @@ export function startGame() {
   const music = new Music();
   const sfx = new Sfx();
 
-  // Never let the recognizer hear the helper voice through the speakers. A
-  // short release delay clears the audio tail, then listening resumes.
-  let narratorRelease = null;
-  narrator.on('start', () => {
-    clearTimeout(narratorRelease);
-    speech.hold('narrator');
-    // Browser speech synthesis occasionally omits its completion callback.
-    // None of the helper lines lasts this long, so fail open rather than
-    // leaving the microphone held forever.
-    narratorRelease = setTimeout(() => speech.release('narrator'), 8000);
-  });
-  narrator.on('end', () => {
-    clearTimeout(narratorRelease);
-    narratorRelease = setTimeout(() => speech.release('narrator'), 80);
-  });
+  // Mobile speakers can feed the modelled answer back into recognition, so
+  // suspend those short sessions while the helper talks. Desktop keeps its
+  // continuous recognizer alive to avoid dropping an answer during the prompt.
+  if (speech.mobile) {
+    let narratorRelease = null;
+    narrator.on('start', () => {
+      clearTimeout(narratorRelease);
+      speech.hold('narrator');
+      // Browser speech synthesis occasionally omits its completion callback.
+      // None of the helper lines lasts this long, so fail open rather than
+      // leaving the microphone held forever.
+      narratorRelease = setTimeout(() => speech.release('narrator'), 8000);
+    });
+    narrator.on('end', () => {
+      clearTimeout(narratorRelease);
+      narratorRelease = setTimeout(() => speech.release('narrator'), 80);
+    });
+  }
 
   if (speech.mobile) {
     speech.on('activity', () => meter.poke(0.45));
