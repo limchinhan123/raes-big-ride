@@ -71,7 +71,9 @@ export class Engine {
     const size = this.#viewSize();
     const rt = new THREE.WebGLRenderTarget(size.w, size.h, {
       samples: this.mobile ? 0 : 2,
-      type: this.mobile ? THREE.UnsignedByteType : THREE.HalfFloatType,
+      // Keep the full colour precision on phones. Mobile performance savings
+      // come from cheaper effects below, not from visibly degrading the image.
+      type: THREE.HalfFloatType,
       colorSpace: THREE.LinearSRGBColorSpace,
     });
     this.composer = new EffectComposer(this.renderer, rt);
@@ -101,8 +103,7 @@ export class Engine {
     // which starves the GPU and shows up as dropped/flickering frames. 1.5x
     // looks near-identical and costs ~44% less. this.quality drops further if
     // we still can't hold frame rate.
-    const dprCap = this.mobile ? 1 : 1.5;
-    const dpr = Math.min(window.devicePixelRatio || 1, dprCap) * (this.quality ?? 1);
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.5) * (this.quality ?? 1);
     return { w: Math.floor(innerWidth * dpr), h: Math.floor(innerHeight * dpr), dpr };
   }
 

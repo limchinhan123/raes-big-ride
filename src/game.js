@@ -32,9 +32,27 @@ export function startGame() {
   const narrator = new Narrator();
   const music = new Music();
   const sfx = new Sfx();
+
+  // Never let the recognizer hear the helper voice through the speakers. A
+  // short release delay clears the audio tail, then listening resumes.
+  let narratorRelease = null;
+  narrator.on('start', () => {
+    clearTimeout(narratorRelease);
+    speech.hold('narrator');
+    // Browser speech synthesis occasionally omits its completion callback.
+    // None of the helper lines lasts this long, so fail open rather than
+    // leaving the microphone held forever.
+    narratorRelease = setTimeout(() => speech.release('narrator'), 8000);
+  });
+  narrator.on('end', () => {
+    clearTimeout(narratorRelease);
+    narratorRelease = setTimeout(() => speech.release('narrator'), 80);
+  });
+
   if (speech.mobile) {
     speech.on('activity', () => meter.poke(0.45));
-    speech.on('voice', () => meter.signalVoice());
+    // Visual feedback only. A generic sound must never resolve an answer.
+    speech.on('voice', () => meter.poke(0.72));
   }
   if (sim) speech.useSimulation();
   if (auto) { narrator.muted = true; }
@@ -83,21 +101,17 @@ export function startGame() {
     if (auto) engine.timeScale = parseFloat(params.get('ts') ?? '6');
     speech.start();
 
-    // First-time coached walkthrough (skipped for QA sim/auto runs). Freezes
-    // the world on the start line until she taps through it. Replayable from
-    // the pause menu; remembered so it only auto-shows once.
-    let seenTut = false;
-    try { seenTut = localStorage.getItem('rbr_seen_tut') === '1'; } catch { seenTut = false; }
+    // Coached walkthrough appears before every real ride on desktop and
+    // mobile. QA automation can still opt out with ?notut=1.
     const runWalkthrough = () => {
       engine.setPaused(true);
       speech.pause();
       return showWalkthrough({ narrator, sfx }).then(() => {
-        try { localStorage.setItem('rbr_seen_tut', '1'); } catch { /* private mode */ }
         engine.setPaused(false);
         speech.start();
       });
     };
-    if (!sim && !seenTut && !params.has('notut')) runWalkthrough();
+    if (!sim && !params.has('notut')) runWalkthrough();
 
     window.addEventListener('keydown', (e) => {
       if (e.key === 'ArrowLeft') player.setLane(player.laneTarget - 0.8);

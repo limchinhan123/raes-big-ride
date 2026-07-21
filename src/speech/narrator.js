@@ -31,7 +31,15 @@ export class Narrator {
     u.pitch = pitch;
     u.volume = 0.95;
     u.onstart = () => { this.speaking = true; this.#emit('start'); };
-    u.onend = () => { this.speaking = false; this.#emit('end'); };
+    let finished = false;
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      this.speaking = false;
+      this.#emit('end');
+    };
+    u.onend = finish;
+    u.onerror = finish;
     speechSynthesis.speak(u);
   }
 

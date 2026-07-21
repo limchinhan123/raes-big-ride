@@ -40,6 +40,9 @@ const CSS = `
 .mic-word { font-size: clamp(40px, 7vw, 72px); font-weight: 700; color: #35313f; }
 .mic-bars { display: flex; gap: 5px; align-items: center; height: 40px; }
 .mic-bars .bar { width: 7px; border-radius: 4px; background: #d4537e; height: 8px; transition: height 0.08s; }
+.mic-status { min-height: 22px; font-size: 16px; color: #6b6353; font-weight: 700; }
+.mic-skip { font-family: inherit; font-size: 16px; font-weight: 700; color: #6b3350; background: #ffe9f2; border: 2px solid #efb7cc; border-radius: 999px; padding: 8px 18px; cursor: pointer; }
+.mic-skip[hidden] { display: none; }
 .mic-note { font-size: 15px; color: #a89f8d; font-weight: 600; }
 .count-num { position: fixed; left: 50%; top: 42%; transform: translate(-50%,-50%); font-size: clamp(90px, 20vw, 200px); font-weight: 700; color: #fff; text-shadow: 0 6px 0 #d4537e, 0 16px 44px rgba(60,40,80,0.5); animation: count-pop 0.9s ease-out; }
 @keyframes count-pop { 0% { transform: translate(-50%,-50%) scale(0.3); opacity: 0; } 25% { transform: translate(-50%,-50%) scale(1.15); opacity: 1; } 100% { transform: translate(-50%,-50%) scale(1); opacity: 0.9; } }
@@ -259,12 +262,15 @@ export class StartFlow {
 
   #stepMic() {
     this.#clear();
+    this._micDone = false;
     this.root.innerHTML = `
       <div class="step-wrap">
         <div class="mic-check">
           <div class="step-q" style="color:#4a4453;text-shadow:none;">Time to check your voice!</div>
           <div class="mic-word">Say “GO!”</div>
           <div class="mic-bars">${'<div class="bar"></div>'.repeat(9)}</div>
+          <div class="mic-status">Listening for your “GO”…</div>
+          <button class="mic-skip" hidden>Mic not responding? Tap to continue</button>
           <div class="mic-note">grown-ups: allow the microphone if asked · or press Enter</div>
         </div>
       </div>`;
@@ -282,16 +288,15 @@ export class StartFlow {
       if (this._micDone) return;
       this._micDone = true;
       clearInterval(this.meterTick);
-      clearTimeout(this._micAuto);
+      clearTimeout(this._micHelp);
       this.sfx?.chime();
       this.#countdown();
     };
-    this.micHear = ({ text }) => {
+    this.micHear = ({ text, isFinal }) => {
+      if (this.speech.mobile && !isFinal) return;
       if (matchWord(text, [{ id: 'go', say: ['go'] }])) done();
     };
     this.speech.on('heard', this.micHear);
-    // any confident voice counts — she said SOMETHING, that's the check
-    this.meter?.on('voice', () => { if (this.meter.level > 0.3) done(); });
     this.keyFallback = (e) => { if (e.key === 'Enter') done(); };
     window.addEventListener('keydown', this.keyFallback);
     // Attach response handlers before starting recognition: mobile Chrome can
@@ -299,8 +304,18 @@ export class StartFlow {
     this.meter?.start();
     this.speech.start();
     this.narrator?.say('Time to check your voice! Say... GO!');
-    // never make her wait: continue by itself after a few seconds
-    this._micAuto = setTimeout(done, 6000);
+    const skip = this.root.querySelector('.mic-skip');
+    const status = this.root.querySelector('.mic-status');
+    const showFallback = () => {
+      if (this._micDone) return;
+      skip.hidden = false;
+      status.textContent = 'Still listening — say “GO” or tap below.';
+    };
+    skip.onclick = done;
+    // Stay on the check until Rae actually speaks or a grown-up chooses the
+    // fallback. Unsupported/blocked microphones expose the fallback at once.
+    if (!this.speech.available) showFallback();
+    else this._micHelp = setTimeout(showFallback, 5000);
     if (this.speech.simulated) setTimeout(() => this.speech.injectUtterance('go'), 1200);
   }
 
@@ -328,7 +343,8 @@ export class StartFlow {
   }
 }
 
-// First-time coached walkthrough. Big, few words, narrator reads each step.
+// Coached walkthrough shown before every real ride. Big, few words, narrator
+// reads each step.
 // Returns a promise that resolves when the child taps "Let's ride!".
 export function showWalkthrough({ narrator, sfx } = {}) {
   ensureStyles();

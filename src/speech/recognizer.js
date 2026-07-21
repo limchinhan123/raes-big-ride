@@ -9,8 +9,10 @@ export class SpeechManager {
     this.lang = lang;
     this.listeners = {};
     this.paused = false;
+    this.wanted = false;
     this.running = false;
     this.starting = false;
+    this.holds = new Set();
     this.mobile = isMobileRuntime();
     this.restartDelay = this.mobile ? 120 : 250;
     this.restartTimer = null;
@@ -23,14 +25,19 @@ export class SpeechManager {
     if (this.available) {
       this.rec = new Ctor();
       this.rec.continuous = !this.mobile;
-      this.rec.interimResults = true;
+      // Mobile interim guesses are quick but frequently wrong for short child
+      // utterances. Final-only results trade a small pause for much better
+      // intent accuracy; desktop keeps its existing interim behaviour.
+      this.rec.interimResults = !this.mobile;
       this.rec.lang = lang;
       this.rec.maxAlternatives = this.mobile ? 1 : 4;
       this.rec.onspeechstart = () => {
-        if (this.mobile) this.#emit('activity');
+        if (this.mobile && this.wanted && !this.paused && this.holds.size === 0) {
+          this.#emit('activity');
+        }
       };
       this.rec.onresult = (e) => {
-        if (this.paused || document.hidden) return;
+        if (!this.wanted || this.paused || this.holds.size > 0 || document.hidden) return;
         for (let i = e.resultIndex; i < e.results.length; i++) {
           const res = e.results[i];
           for (let a = 0; a < Math.min(res.length, this.mobile ? 1 : 3); a++) {
@@ -63,7 +70,7 @@ export class SpeechManager {
       this.rec.onstart = () => {
         this.starting = false;
         this.#clearWatchdog();
-        if (this.paused || document.hidden) {
+        if (!this.wanted || this.paused || this.holds.size > 0 || document.hidden) {
           this.running = false;
           try { this.rec.abort(); } catch { /* already idle */ }
           return;
@@ -115,13 +122,15 @@ export class SpeechManager {
   }
 
   start() {
+    this.wanted = true;
     this.paused = false;
     if (this.simulated) this.#emit('status', 'listening');
     this.#scheduleRestart(0);
   }
 
   #tryStart() {
-    if (!this.available || this.paused || this.running || this.starting || document.hidden) return;
+    if (!this.available || !this.wanted || this.paused || this.holds.size > 0
+      || this.running || this.starting || document.hidden) return;
     this.starting = true;
     try {
       this.rec.start();
@@ -149,7 +158,7 @@ export class SpeechManager {
 
   #scheduleRestart(delay) {
     this.#clearRestart();
-    if (!this.available || this.paused || document.hidden) return;
+    if (!this.available || !this.wanted || this.paused || this.holds.size > 0 || document.hidden) return;
     this.restartTimer = setTimeout(() => {
       this.restartTimer = null;
       this.#tryStart();
@@ -167,6 +176,7 @@ export class SpeechManager {
   }
 
   pause() {
+    this.wanted = false;
     this.paused = true;
     this.#clearRestart();
     this.#clearWatchdog();
@@ -175,6 +185,25 @@ export class SpeechManager {
     }
     this.running = false;
     this.starting = false;
+  }
+
+  // Temporarily discard recognition while the helper voice is playing. This
+  // prevents the device speaker from answering its own prompt without turning
+  // a real game pause into an automatic resume.
+  hold(reason) {
+    this.holds.add(reason);
+    this.#clearRestart();
+    this.#clearWatchdog();
+    if (this.available && (this.running || this.starting)) {
+      try { this.rec.abort(); } catch { /* already idle */ }
+    }
+    this.running = false;
+    this.starting = false;
+  }
+
+  release(reason) {
+    this.holds.delete(reason);
+    if (this.holds.size === 0 && this.wanted && !this.paused) this.#scheduleRestart(80);
   }
 
   on(event, fn) {
