@@ -1,0 +1,58 @@
+// Mic level meter + simple voice-activity detection. Separate stream from
+// the recognizer, with echo cancellation so speaker music stays out.
+
+export class VoiceMeter {
+  constructor() {
+    this.level = 0;
+    this.available = false;
+    this.voiceHold = 0;
+    this.listeners = {};
+    this.simLevel = 0;
+    this.gain = 1.6; // mic boost, parent-adjustable
+  }
+
+  async start() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      });
+      const ctx = new AudioContext();
+      const src = ctx.createMediaStreamSource(stream);
+      this.analyser = ctx.createAnalyser();
+      this.analyser.fftSize = 512;
+      src.connect(this.analyser);
+      this.buf = new Uint8Array(this.analyser.frequencyBinCount);
+      this.available = true;
+      this.ctx = ctx;
+    } catch {
+      this.available = false;
+    }
+    return this.available;
+  }
+
+  poke(level = 0.7) { this.simLevel = level; } // sim harness pulses the meter
+
+  update(dt) {
+    let target = 0;
+    if (this.available && this.analyser) {
+      this.analyser.getByteFrequencyData(this.buf);
+      let sum = 0;
+      for (let i = 2; i < 60; i++) sum += this.buf[i];
+      target = Math.min(1, ((sum / 58) / 62) * this.gain);
+    }
+    if (this.simLevel > 0.01) {
+      target = Math.max(target, this.simLevel);
+      this.simLevel *= Math.exp(-dt * 2.2);
+    }
+    this.level += (target - this.level) * Math.min(1, dt * 12);
+    if (this.level > 0.16) {
+      this.voiceHold += dt;
+      if (this.voiceHold > 0.12) this.#emit('voice');
+    } else {
+      this.voiceHold = 0;
+    }
+  }
+
+  on(event, fn) { (this.listeners[event] ??= []).push(fn); }
+  #emit(event, data) { for (const fn of this.listeners[event] ?? []) fn(data); }
+}
