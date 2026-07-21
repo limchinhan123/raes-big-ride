@@ -630,6 +630,7 @@ export class GameWorld {
 
   update(dt, t, playerS, playerPos) {
     this.timeU.value = t;
+    if (this.sea) this.sea.uniforms.uTime.value = t % 300;  // bounded sea clock
     this.lastFocus = playerPos;
     this.sky.update(dt, playerPos);
     this.terrain.ensureRange(Math.max(0, playerS - 90), Math.min(this.L, playerS + 380));

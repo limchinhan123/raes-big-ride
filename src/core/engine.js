@@ -42,11 +42,14 @@ const GradeShader = {
 export class Engine {
   constructor(canvas) {
     this.canvas = canvas;
+    // ?capture keeps the drawing buffer so toDataURL can export README frames
+    const captureMode = new URLSearchParams(location.search).has('capture');
     this.renderer = new THREE.WebGLRenderer({
       canvas,
       antialias: false,
       powerPreference: 'high-performance',
       stencil: false,
+      preserveDrawingBuffer: captureMode,
     });
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;

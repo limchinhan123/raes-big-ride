@@ -5,68 +5,50 @@ import { mulberry32, GLSL_NOISE } from '../../core/prng.js';
 // beach shelter. The sea is a big plane with a gentle Gerstner-ish shader.
 
 export function buildSea(timeU) {
+  // Built on MeshStandardMaterial (not a raw ShaderMaterial) so it flows
+  // through three.js's full output pipeline — tonemapping, colorspace, fog.
+  // A raw ShaderMaterial here rendered BLACK intermittently through the
+  // EffectComposer's HDR target (the coast flicker); the injected-standard
+  // approach is the same one terrain/road use and never flickers.
   const uniforms = {
-    uTime: timeU,
+    uTime: { value: 0 },   // OWN clock, wrapped each frame — never grows unbounded
     uDeep: { value: new THREE.Color(0x2e6f8e) },
     uShallow: { value: new THREE.Color(0x6fb5c9) },
     uSky: { value: new THREE.Color(0xcfe3ee) },
     uSunDir: { value: new THREE.Vector3(0, 1, 0) },
     uSunColor: { value: new THREE.Color(0xfff2d0) },
-    // ShaderMaterial with fog:true must declare the fog uniforms itself
-    fogColor: { value: new THREE.Color(0xd6e0e6) },
-    fogDensity: { value: 0.0022 },
-    fogNear: { value: 1 },
-    fogFar: { value: 2000 },
   };
-  const mat = new THREE.ShaderMaterial({
-    uniforms,
-    fog: true,
-    vertexShader: /* glsl */ `
-      #include <fog_pars_vertex>
-      uniform float uTime;
-      varying vec3 vPos;
-      varying vec3 vNorm;
-      void main() {
-        vec3 p = position;
-        float w1 = sin(p.x * 0.11 + uTime * 0.9) * 0.14;
-        float w2 = sin((p.x + p.y) * 0.061 + uTime * 0.63) * 0.2;
-        float w3 = sin(p.y * 0.17 - uTime * 1.2) * 0.08;
-        p.z += w1 + w2 + w3;
-        float dx = 0.11 * cos(p.x * 0.11 + uTime * 0.9) * 0.14 + 0.061 * cos((p.x + p.y) * 0.061 + uTime * 0.63) * 0.2;
-        float dy = 0.061 * cos((p.x + p.y) * 0.061 + uTime * 0.63) * 0.2 + 0.17 * cos(p.y * 0.17 - uTime * 1.2) * 0.08;
-        vNorm = normalize(vec3(-dx, -dy, 1.0));
-        vPos = p;
-        vec4 mvPosition = modelViewMatrix * vec4(p, 1.0);
-        gl_Position = projectionMatrix * mvPosition;
-        #include <fog_vertex>
-      }
-    `,
-    fragmentShader: /* glsl */ `
-      #include <fog_pars_fragment>
-      ${GLSL_NOISE}
-      uniform vec3 uDeep; uniform vec3 uShallow; uniform vec3 uSky;
-      uniform vec3 uSunDir; uniform vec3 uSunColor; uniform float uTime;
-      varying vec3 vPos; varying vec3 vNorm;
-      void main() {
-        vec3 n = normalize(vNorm);
-        // plane is rotated flat: local +z is world up, +y points at the beach
-        float shore = smoothstep(20.0, 138.0, vPos.y);
-        vec3 col = mix(uDeep, uShallow, shore * 0.85);
-        // sky tint by fresnel-ish
-        float fres = pow(1.0 - abs(n.z), 1.6);
-        col = mix(col, uSky, fres * 0.55);
-        // sparkle
-        float sp = rbNoise(vPos.xy * 2.4 + uTime * 0.7) * rbNoise(vPos.xy * 5.1 - uTime * 0.9);
-        float glint = smoothstep(0.52, 0.72, sp) * max(0.0, uSunDir.y) * 1.4;
-        col += uSunColor * glint;
-        // foam near shore
-        float foam = smoothstep(130.0, 143.0, vPos.y + sin(vPos.x * 0.24 + uTime * 1.1) * 2.2);
-        col = mix(col, vec3(0.93, 0.96, 0.96), foam * 0.75);
-        gl_FragColor = vec4(col, 1.0);
-        #include <fog_fragment>
-      }
-    `,
-  });
+  const mat = new THREE.MeshStandardMaterial({ color: 0x3f86a6, roughness: 0.22, metalness: 0.0 });
+  mat.onBeforeCompile = (sh) => {
+    sh.uniforms.uTime = uniforms.uTime;
+    sh.uniforms.uDeep = uniforms.uDeep;
+    sh.uniforms.uShallow = uniforms.uShallow;
+    sh.uniforms.uSky = uniforms.uSky;
+    sh.uniforms.uSunDir = uniforms.uSunDir;
+    sh.uniforms.uSunColor = uniforms.uSunColor;
+    sh.vertexShader = sh.vertexShader
+      .replace('#include <common>', `#include <common>\n uniform float uTime; varying vec3 vSea;`)
+      .replace('#include <beginnormal_vertex>', `#include <beginnormal_vertex>
+        float ndx = 0.11 * cos(position.x * 0.11 + uTime * 0.9) * 0.14 + 0.061 * cos((position.x + position.y) * 0.061 + uTime * 0.63) * 0.2;
+        float ndy = 0.061 * cos((position.x + position.y) * 0.061 + uTime * 0.63) * 0.2 + 0.17 * cos(position.y * 0.17 - uTime * 1.2) * 0.08;
+        objectNormal = normalize(vec3(-ndx, -ndy, 1.0));`)
+      .replace('#include <begin_vertex>', `#include <begin_vertex>
+        transformed.z += sin(position.x * 0.11 + uTime * 0.9) * 0.14
+                       + sin((position.x + position.y) * 0.061 + uTime * 0.63) * 0.2
+                       + sin(position.y * 0.17 - uTime * 1.2) * 0.08;
+        vSea = position;`);
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <common>', `#include <common>\n uniform float uTime; uniform vec3 uDeep, uShallow, uSky, uSunDir, uSunColor; varying vec3 vSea;\n ${GLSL_NOISE}`)
+      .replace('#include <color_fragment>', `#include <color_fragment>
+        float shore = smoothstep(20.0, 138.0, vSea.y);
+        vec3 sea = mix(uDeep, uShallow, shore * 0.85);
+        sea = mix(sea, uSky, 0.18);
+        float sp = rbNoise(vSea.xy * 2.4 + uTime * 0.7) * rbNoise(vSea.xy * 5.1 - uTime * 0.9);
+        sea += uSunColor * smoothstep(0.52, 0.72, sp) * max(0.0, uSunDir.y) * 0.9;
+        float foam = smoothstep(130.0, 143.0, vSea.y + sin(vSea.x * 0.24 + uTime * 1.1) * 2.2);
+        sea = mix(sea, vec3(0.93, 0.96, 0.96), foam * 0.75);
+        diffuseColor.rgb = clamp(sea, 0.0, 1.6);`);
+  };
   const geo = new THREE.PlaneGeometry(560, 320, 80, 48);
   const mesh = new THREE.Mesh(geo, mat);
   mesh.rotation.x = -Math.PI / 2;
