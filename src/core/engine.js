@@ -4,6 +4,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { isMobileRuntime } from './mobile.js';
 
 // Final display-referred grade: gentle vignette, warmth lift, saturation.
 const GradeShader = {
@@ -42,8 +43,10 @@ const GradeShader = {
 export class Engine {
   constructor(canvas) {
     this.canvas = canvas;
+    this.mobile = isMobileRuntime();
     // ?capture keeps the drawing buffer so toDataURL can export README frames
-    const captureMode = new URLSearchParams(location.search).has('capture');
+    const params = new URLSearchParams(location.search);
+    const captureMode = params.has('capture');
     this.renderer = new THREE.WebGLRenderer({
       canvas,
       antialias: false,
@@ -54,7 +57,7 @@ export class Engine {
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.0;
-    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.enabled = !this.mobile;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
     this.scene = new THREE.Scene();
@@ -67,13 +70,14 @@ export class Engine {
 
     const size = this.#viewSize();
     const rt = new THREE.WebGLRenderTarget(size.w, size.h, {
-      samples: 2,
-      type: THREE.HalfFloatType,
+      samples: this.mobile ? 0 : 2,
+      type: this.mobile ? THREE.UnsignedByteType : THREE.HalfFloatType,
       colorSpace: THREE.LinearSRGBColorSpace,
     });
     this.composer = new EffectComposer(this.renderer, rt);
     this.renderPass = new RenderPass(this.scene, this.camera);
     this.bloomPass = new UnrealBloomPass(new THREE.Vector2(size.w, size.h), 0.16, 0.7, 0.86);
+    this.bloomPass.enabled = !this.mobile;
     this.outputPass = new OutputPass();
     this.gradePass = new ShaderPass(GradeShader);
     this.composer.addPass(this.renderPass);
@@ -81,7 +85,7 @@ export class Engine {
     this.composer.addPass(this.outputPass);
     this.composer.addPass(this.gradePass);
 
-    this.noFx = new URLSearchParams(location.search).has('nofx');
+    this.noFx = params.has('nofx');
     this.clock = new THREE.Clock();
     this.time = 0;
     this.timeScale = 1;
@@ -97,7 +101,8 @@ export class Engine {
     // which starves the GPU and shows up as dropped/flickering frames. 1.5x
     // looks near-identical and costs ~44% less. this.quality drops further if
     // we still can't hold frame rate.
-    const dpr = Math.min(window.devicePixelRatio || 1, 1.5) * (this.quality ?? 1);
+    const dprCap = this.mobile ? 1 : 1.5;
+    const dpr = Math.min(window.devicePixelRatio || 1, dprCap) * (this.quality ?? 1);
     return { w: Math.floor(innerWidth * dpr), h: Math.floor(innerHeight * dpr), dpr };
   }
 

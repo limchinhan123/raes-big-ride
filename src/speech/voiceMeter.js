@@ -1,5 +1,8 @@
-// Mic level meter + simple voice-activity detection. Separate stream from
-// the recognizer, with echo cancellation so speaker music stays out.
+import { isMobileRuntime } from '../core/mobile.js';
+
+// Mic level meter + simple voice-activity detection. Desktop keeps the richer
+// analyser. Mobile reuses Web Speech activity so two consumers do not compete
+// for the microphone or create another AudioContext.
 
 export class VoiceMeter {
   constructor() {
@@ -9,9 +12,17 @@ export class VoiceMeter {
     this.listeners = {};
     this.simLevel = 0;
     this.gain = 1.6; // mic boost, parent-adjustable
+    this.mobile = isMobileRuntime();
+    this.started = false;
   }
 
   async start() {
+    if (this.started) return this.available;
+    this.started = true;
+    if (this.mobile) {
+      this.available = true;
+      return true;
+    }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
@@ -26,11 +37,18 @@ export class VoiceMeter {
       this.ctx = ctx;
     } catch {
       this.available = false;
+      this.started = false;
     }
     return this.available;
   }
 
-  poke(level = 0.7) { this.simLevel = level; } // sim harness pulses the meter
+  poke(level = 0.7) { this.simLevel = Math.max(this.simLevel, level); } // sim harness pulses the meter
+
+  signalVoice(level = 0.72) {
+    this.level = Math.max(this.level, level);
+    this.poke(level);
+    this.#emit('voice');
+  }
 
   update(dt) {
     let target = 0;

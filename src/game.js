@@ -32,6 +32,10 @@ export function startGame() {
   const narrator = new Narrator();
   const music = new Music();
   const sfx = new Sfx();
+  if (speech.mobile) {
+    speech.on('activity', () => meter.poke(0.45));
+    speech.on('voice', () => meter.signalVoice());
+  }
   if (sim) speech.useSimulation();
   if (auto) { narrator.muted = true; }
 

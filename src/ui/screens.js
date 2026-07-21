@@ -268,12 +268,13 @@ export class StartFlow {
           <div class="mic-note">grown-ups: allow the microphone if asked · or press Enter</div>
         </div>
       </div>`;
-    this.meter?.start();
-    this.speech.start();
-    this.narrator?.say('Time to check your voice! Say... GO!');
     const bars = [...this.root.querySelectorAll('.mic-bars .bar')];
     const shape = [0.4, 0.6, 0.85, 1, 0.9, 1, 0.8, 0.6, 0.4];
+    let meterAt = performance.now();
     this.meterTick = setInterval(() => {
+      const now = performance.now();
+      if (this.speech.mobile) this.meter?.update(Math.min(0.1, (now - meterAt) / 1000));
+      meterAt = now;
       const lv = this.meter?.level ?? 0;
       bars.forEach((b, i) => { b.style.height = `${6 + lv * 34 * shape[i] * (0.75 + Math.random() * 0.5)}px`; });
     }, 60);
@@ -293,6 +294,11 @@ export class StartFlow {
     this.meter?.on('voice', () => { if (this.meter.level > 0.3) done(); });
     this.keyFallback = (e) => { if (e.key === 'Enter') done(); };
     window.addEventListener('keydown', this.keyFallback);
+    // Attach response handlers before starting recognition: mobile Chrome can
+    // deliver an interim result almost immediately after permission is warm.
+    this.meter?.start();
+    this.speech.start();
+    this.narrator?.say('Time to check your voice! Say... GO!');
     // never make her wait: continue by itself after a few seconds
     this._micAuto = setTimeout(done, 6000);
     if (this.speech.simulated) setTimeout(() => this.speech.injectUtterance('go'), 1200);
