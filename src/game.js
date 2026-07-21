@@ -99,7 +99,6 @@ export function startGame() {
     }) : null;
 
     if (auto) engine.timeScale = parseFloat(params.get('ts') ?? '6');
-    speech.start();
 
     // Coached walkthrough appears before every real ride on desktop and
     // mobile. QA automation can still opt out with ?notut=1.
@@ -108,10 +107,13 @@ export function startGame() {
       speech.pause();
       return showWalkthrough({ narrator, sfx, mobile: speech.mobile }).then(() => {
         engine.setPaused(false);
-        speech.start();
+        // The walkthrough button is a fresh user gesture, so mobile can begin
+        // listening immediately instead of deferring its browser handshake.
+        speech.start({ immediate: speech.mobile });
       });
     };
     if (!sim && !params.has('notut')) runWalkthrough();
+    else speech.start({ immediate: speech.mobile });
 
     window.addEventListener('keydown', (e) => {
       if (e.key === 'ArrowLeft') player.setLane(player.laneTarget - 0.8);

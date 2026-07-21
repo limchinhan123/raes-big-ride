@@ -223,27 +223,34 @@ export class Director {
     return !!(this.active && (this.active.targets?.length || this.active.kind === 'whee'));
   }
 
-  #onHeard(text) {
+  #onHeard(text, isFinal = true) {
     if (this.finished) return;
     this.meter.poke(0.65);
     const ev = this.active;
+    const strictInterim = this.speech.mobile && !isFinal;
 
     // a waiting clue card gets first refusal on the word
     if (ev?.targets?.length) {
       const hit = matchWord(text, ev.targets);
-      if (hit) { this.#resolve(ev, hit.id, 'said'); return; }
+      if (hit && (!strictInterim || hit.quality === 1)) {
+        this.#resolve(ev, hit.id, 'said');
+        return;
+      }
     }
 
-    // ALWAYS-ON: steering and the bell work at any moment of the ride,
-    // including while a clue card is up
-    const free = matchWord(text, [
-      { id: 'left', say: ['left'] },
-      { id: 'right', say: ['right'] },
+    // The bell stays available at any moment. Steering and speed remain
+    // desktop-only: mobile recognition is reserved for the active word card.
+    const freeTargets = [
       { id: 'bell', say: ['bell', 'ring ring'] },
-      { id: 'faster', say: ['faster', 'fast', 'speed up'] },
-      { id: 'slower', say: ['slower', 'slow', 'slow down'] },
-    ]);
-    if (!free) return;
+      ...(!this.speech.mobile ? [
+        { id: 'left', say: ['left'] },
+        { id: 'right', say: ['right'] },
+        { id: 'faster', say: ['faster', 'fast', 'speed up'] },
+        { id: 'slower', say: ['slower', 'slow', 'slow down'] },
+      ] : []),
+    ];
+    const free = matchWord(text, freeTargets);
+    if (!free || (strictInterim && free.quality !== 1)) return;
     if (free.id === 'bell') {
       this.hud.praise('🔔 Ring ring!');
       this.#scatterPigeonsNear();

@@ -41,8 +41,10 @@ const CSS = `
 .mic-bars { display: flex; gap: 5px; align-items: center; height: 40px; }
 .mic-bars .bar { width: 7px; border-radius: 4px; background: #d4537e; height: 8px; transition: height 0.08s; }
 .mic-status { min-height: 22px; font-size: 16px; color: #6b6353; font-weight: 700; }
-.mic-skip { font-family: inherit; font-size: 16px; font-weight: 700; color: #6b3350; background: #ffe9f2; border: 2px solid #efb7cc; border-radius: 999px; padding: 8px 18px; cursor: pointer; }
-.mic-skip[hidden] { display: none; }
+.mic-start, .mic-skip { font-family: inherit; font-size: 16px; font-weight: 700; color: #6b3350; background: #ffe9f2; border: 2px solid #efb7cc; border-radius: 999px; padding: 8px 18px; cursor: pointer; }
+.mic-start { font-size: 19px; padding: 11px 24px; }
+.mic-start:disabled { opacity: 0.58; cursor: wait; }
+.mic-start[hidden], .mic-skip[hidden] { display: none; }
 .mic-note { font-size: 15px; color: #a89f8d; font-weight: 600; }
 .count-num { position: fixed; left: 50%; top: 42%; transform: translate(-50%,-50%); font-size: clamp(90px, 20vw, 200px); font-weight: 700; color: #fff; text-shadow: 0 6px 0 #d4537e, 0 16px 44px rgba(60,40,80,0.5); animation: count-pop 0.9s ease-out; }
 @keyframes count-pop { 0% { transform: translate(-50%,-50%) scale(0.3); opacity: 0; } 25% { transform: translate(-50%,-50%) scale(1.15); opacity: 1; } 100% { transform: translate(-50%,-50%) scale(1); opacity: 0.9; } }
@@ -263,13 +265,15 @@ export class StartFlow {
   #stepMic() {
     this.#clear();
     this._micDone = false;
+    const mobile = this.speech.mobile;
     this.root.innerHTML = `
       <div class="step-wrap">
         <div class="mic-check">
           <div class="step-q" style="color:#4a4453;text-shadow:none;">Time to check your voice!</div>
           <div class="mic-word">Say “GO!”</div>
           <div class="mic-bars">${'<div class="bar"></div>'.repeat(9)}</div>
-          <div class="mic-status">Listening for your “GO”…</div>
+          <div class="mic-status">${mobile ? 'Tap the microphone, then say “GO”.' : 'Listening for your “GO”…'}</div>
+          <button class="mic-start" ${mobile ? '' : 'hidden'} disabled>🎤 Tap to start mic</button>
           <button class="mic-skip" hidden>Mic not responding? Tap to continue</button>
           <div class="mic-note">grown-ups: allow the microphone if asked · or press Enter</div>
         </div>
@@ -284,6 +288,14 @@ export class StartFlow {
       const lv = this.meter?.level ?? 0;
       bars.forEach((b, i) => { b.style.height = `${6 + lv * 34 * shape[i] * (0.75 + Math.random() * 0.5)}px`; });
     }, 60);
+    const startBtn = this.root.querySelector('.mic-start');
+    const skip = this.root.querySelector('.mic-skip');
+    const status = this.root.querySelector('.mic-status');
+    const showFallback = (message = 'Still listening — say “GO” or tap below.') => {
+      if (this._micDone) return;
+      skip.hidden = false;
+      status.textContent = message;
+    };
     const done = () => {
       if (this._micDone) return;
       this._micDone = true;
@@ -293,29 +305,64 @@ export class StartFlow {
       this.#countdown();
     };
     this.micHear = ({ text, isFinal }) => {
-      if (this.speech.mobile && !isFinal) return;
-      if (matchWord(text, [{ id: 'go', say: ['go'] }])) done();
+      const hit = matchWord(text, [{ id: 'go', say: ['go'] }]);
+      if (hit && (isFinal || !mobile || hit.quality === 1)) done();
     };
     this.speech.on('heard', this.micHear);
+    this.speech.on('status', (next) => {
+      if (this._micDone || !mobile) return;
+      if (next === 'starting') {
+        status.textContent = 'Starting microphone…';
+      } else if (next === 'listening') {
+        startBtn.hidden = true;
+        status.textContent = 'Listening — say “GO” normally!';
+      } else if (next === 'reconnecting') {
+        status.textContent = 'Mic reconnecting — keep speaking normally…';
+      }
+    });
+    this.speech.on('mic-blocked', () => {
+      if (this._micDone) return;
+      startBtn.hidden = true;
+      showFallback('Microphone blocked — allow it in Chrome settings, or tap below.');
+    });
+    this.speech.on('error', (error) => {
+      if (this._micDone || !mobile || error === 'no-speech' || error === 'aborted') return;
+      status.textContent = 'Mic reconnecting — no need to shout…';
+    });
     this.keyFallback = (e) => { if (e.key === 'Enter') done(); };
     window.addEventListener('keydown', this.keyFallback);
-    // Attach response handlers before starting recognition: mobile Chrome can
-    // deliver an interim result almost immediately after permission is warm.
     this.meter?.start();
-    this.speech.start();
-    this.narrator?.say('Time to check your voice! Say... GO!');
-    const skip = this.root.querySelector('.mic-skip');
-    const status = this.root.querySelector('.mic-status');
-    const showFallback = () => {
-      if (this._micDone) return;
-      skip.hidden = false;
-      status.textContent = 'Still listening — say “GO” or tap below.';
-    };
     skip.onclick = done;
-    // Stay on the check until Rae actually speaks or a grown-up chooses the
-    // fallback. Unsupported/blocked microphones expose the fallback at once.
-    if (!this.speech.available) showFallback();
-    else this._micHelp = setTimeout(showFallback, 5000);
+
+    if (!this.speech.available) {
+      startBtn.hidden = true;
+      showFallback('Voice input is unavailable here — tap below to continue.');
+      this.narrator?.say('The microphone is not available. A grown-up can tap to continue.');
+    } else if (mobile) {
+      // First permission must be requested directly from a tap. Finish the
+      // spoken setup before enabling the button so the narrator cannot cancel
+      // or answer the recognition session.
+      startBtn.onclick = () => {
+        if (this._micDone) return;
+        startBtn.disabled = true;
+        startBtn.textContent = '🎤 Starting…';
+        status.textContent = 'Starting microphone…';
+        this.speech.start({ immediate: true });
+        clearTimeout(this._micHelp);
+        this._micHelp = setTimeout(() => showFallback(), 8000);
+      };
+      Promise.resolve(this.narrator?.say('Time to check your voice. Tap the microphone, then say go.'))
+        .then(() => setTimeout(() => {
+          if (this._micDone || !this.speech.available) return;
+          startBtn.disabled = false;
+          status.textContent = 'Tap the microphone, then say “GO”.';
+        }, 120));
+    } else {
+      this.speech.start();
+      this.narrator?.say('Time to check your voice! Say... GO!');
+      this._micHelp = setTimeout(() => showFallback(), 5000);
+    }
+
     if (this.speech.simulated) setTimeout(() => this.speech.injectUtterance('go'), 1200);
   }
 
