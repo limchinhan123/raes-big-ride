@@ -106,7 +106,7 @@ export function startGame() {
     const runWalkthrough = () => {
       engine.setPaused(true);
       speech.pause();
-      return showWalkthrough({ narrator, sfx }).then(() => {
+      return showWalkthrough({ narrator, sfx, mobile: speech.mobile }).then(() => {
         engine.setPaused(false);
         speech.start();
       });
