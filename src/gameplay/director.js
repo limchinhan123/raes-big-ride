@@ -227,12 +227,18 @@ export class Director {
     if (this.finished) return;
     this.meter.poke(0.65);
     const ev = this.active;
-    const strictInterim = this.speech.mobile && !isFinal;
+    // Interim (non-final) ASR fires several rough, half-formed guesses per
+    // utterance — on desktop up to 3 alternatives each. With the very forgiving
+    // matcher, that noise used to auto-resolve a card before she'd even spoken.
+    // So a provisional guess may only act on a near-exact hit; anything fuzzy
+    // waits for the final transcript (which stays fully forgiving). This applies
+    // on desktop now too, not just mobile.
+    const strictInterim = !isFinal;
 
     // a waiting clue card gets first refusal on the word
     if (ev?.targets?.length) {
       const hit = matchWord(text, ev.targets);
-      if (hit && (!strictInterim || hit.quality === 1)) {
+      if (hit && (!strictInterim || hit.quality >= 0.9)) {
         this.#resolve(ev, hit.id, 'said');
         return;
       }
@@ -249,8 +255,13 @@ export class Director {
         { id: 'slower', say: ['slower', 'slow', 'slow down'] },
       ] : []),
     ];
+    // Steering/speed/bell are ALWAYS listening, so a stray fuzzy match is pure
+    // downside (phantom steers mid-ride). Require a solid match — exact, a known
+    // toddler alias, or a clear substring (q>=0.9) — never the loose
+    // edit-distance/phonetic tiers, which collide with everyday words
+    // (light↔left via 'lift', ride↔right via 'rite', let↔left via 'lef').
     const free = matchWord(text, freeTargets);
-    if (!free || (strictInterim && free.quality !== 1)) return;
+    if (!free || free.quality < 0.9) return;
     if (free.id === 'bell') {
       this.hud.praise('🔔 Ring ring!');
       this.#scatterPigeonsNear();
@@ -299,6 +310,10 @@ export class Director {
     ev.shown = true;
     this.stateTimer = 0;
     this.promptCount = 0;
+    // Per-event answer window, only started once she's actually NEAR the card
+    // (see update()) — never from the moment it armed 55m back.
+    ev.waitT = 0;
+    ev.stage = 0;
     const chapterClues = CLUES[ev.chapter] ? ev.chapter : 'heartland';
 
     if (ev.kind === 'fork') {
@@ -467,24 +482,35 @@ export class Director {
           this.player.setState('stop');
           ev.stuckOpen = true;
         }
-        // Nudges are VISUAL ONLY so the mic stays live while she's trying.
-        // First a highlight, then one short spoken hint, then move on quickly.
-        if (this.stateTimer > 3.5 && this.promptCount === 0) {
-          this.promptCount = 1; ev.tries++;
-          const word = ev.kind === 'fork' ? ev.left.say[0] : ev.clue.say[0];
-          this.hud.encourage(`Try saying: ${word.toUpperCase()}`);
-        } else if (this.stateTimer > 6.5 && this.promptCount === 1) {
-          this.promptCount = 2; ev.tries++;
-          const word = ev.kind === 'fork' ? ev.left.say[0] : ev.clue.say[0];
-          this.narrator.say(`Say ${word}`);   // brief; hold is short
-        }
-        // never jam: after ~9s of quiet, say it together and roll on
-        if (this.stateTimer > 9) {
-          const pickId = ev.kind === 'fork' ? ev.left.id : ev.clue.id;
-          const word = ev.kind === 'fork' ? ev.left.say[0] : ev.clue.say[0];
-          this.narrator.say(`${word}!`);
-          ev.tries++;
-          this.#resolve(ev, pickId, 'auto');
+        // THE ANSWER WINDOW IS ANCHORED TO PROXIMITY, NOT TO ARM TIME.
+        // The card arms up to 55m out so she has time to read it — but if the
+        // nudge/auto-advance clock also started then, on quicker or downhill
+        // stretches the whole window (nudge → spoken hint → auto-resolve) ran
+        // out while she was still coasting toward the card: it "passed on its
+        // own" before she spoke, and had already cleared by the time she
+        // reached the spot (leaving only the narrator mid-nag = the jam). So
+        // her clock only ticks once she's genuinely close, and until then the
+        // mic just stays wide open with the card up.
+        const word = ev.kind === 'fork' ? ev.left.say[0] : ev.clue.say[0];
+        if (dToEvent < 15) {
+          ev.waitT += dt;
+          // 0–5s: pure silence — card up, mic wide open, let her read & speak.
+          if (ev.waitT > 5 && ev.stage === 0) {
+            ev.stage = 1; ev.tries++;
+            this.hud.encourage(`Try saying: ${word.toUpperCase()}`); // visual only
+          } else if (ev.waitT > 9 && ev.stage === 1) {
+            // She can't read — model the word ONCE so she can echo it, then the
+            // mic reopens for the rest of the window.
+            ev.stage = 2; ev.tries++;
+            this.hud.pulseCards?.();
+            this.narrator.say(`Can you say… ${word}?`);
+          } else if (ev.waitT > 13.5) {
+            // Never a dead end: say it together and roll gently on.
+            this.narrator.say(`${word}!`);
+            ev.tries++;
+            const pickId = ev.kind === 'fork' ? ev.left.id : ev.clue.id;
+            this.#resolve(ev, pickId, 'auto');
+          }
         }
       } else if (dToEvent < -20) {
         this.active = null;

@@ -13,6 +13,11 @@ const CSS = `
 .clue-card.show { transform: translateY(0) scale(1); opacity: 1; }
 .clue-card.correct { border-color: #7fc16e; background: #f0fae8; transform: scale(1.12); }
 .clue-card.dim { opacity: 0.35; transform: scale(0.9); }
+.clue-card.pulse { animation: cluePulse 0.75s ease-in-out 2; }
+@keyframes cluePulse {
+  0%, 100% { transform: translateY(0) scale(1); box-shadow: 0 10px 30px rgba(40,40,60,0.25); }
+  50% { transform: translateY(-7px) scale(1.09); border-color: #f2a0c0; box-shadow: 0 18px 44px rgba(210,83,126,0.42); }
+}
 .clue-card .arrow { font-size: 26px; color: #4a7ab5; font-weight: 700; }
 .clue-card .glyph { font-size: 64px; line-height: 1.15; }
 .clue-card .word { font-size: 40px; font-weight: 700; color: #35313f; letter-spacing: 2px; line-height: 1.05; }
@@ -163,6 +168,16 @@ export class Hud {
       this.clueWrap.appendChild(card);
       requestAnimationFrame(() => card.classList.add('show'));
       this.cards.push({ el: card, id: opt.clue.id });
+    }
+  }
+
+  // a friendly attention pulse when she's gone quiet — visual only, so it
+  // never mutes the mic the way a spoken nudge would
+  pulseCards() {
+    for (const c of this.cards) {
+      c.el.classList.remove('pulse');
+      void c.el.offsetWidth; // reflow so the animation can restart
+      c.el.classList.add('pulse');
     }
   }
 

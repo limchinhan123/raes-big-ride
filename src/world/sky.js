@@ -234,6 +234,13 @@ export class SkyRig {
       this.sky.position.copy(focus);
       this.farGround.position.x = focus.x;
       this.farGround.position.z = focus.z;
+      // CRITICAL: the disc must ride DOWN with the terrain, not stay frozen.
+      // Pinned at a fixed height it sat 2.5m below the origin — fine on flat
+      // ground, but with the bigger hills the chase camera dips to ~terrain+1.45
+      // in a valley and skims the frozen disc edge-on, sheeting green over the
+      // whole lower screen and burying Rae to the neck. Keep it a fixed 2.5m
+      // below her local ground so it only ever closes the far horizon gap.
+      this.farGround.position.y = focus.y - 2.5;
     }
     // Clouds ride WITH the player, like the sky dome does. Left pinned to the
     // world origin they ended up ~1700m behind by the end of the journey,

@@ -24,7 +24,7 @@ const ALIASES = {
   duck: ['ducks', 'duck duck', 'dark'],
   egg: ['eggs', 'egg egg', 'x'],
   stop: ['stopp', 'stob', 'star p'],
-  go: ['goh', 'gogo', 'goal', 'girl'],
+  go: ['goh', 'gogo', 'go go'],
   wheee: ['we', 'wee', 'whee', 'weee', 'yay', 'wow', 'woah'],
   moon: ['moo', 'moons'],
   sun: ['son', 'sunny'],
@@ -37,8 +37,10 @@ const ALIASES = {
   car: ['cars', 'kar'],
   bell: ['bells', 'bail', 'bao'],
   'ring ring': ['ring', 'ring ring ring', 'ling ling'],
-  left: ['lef', 'lift', 'let', 'laft', 'left left', 'lept', 'lest'],
-  right: ['rite', 'write', 'bright', 'right right', 'ride', 'wight', 'light'],
+  // NB: aliases here trigger always-on steering, so no everyday narration words
+  // ('let', 'light', 'ride', 'girl') — those caused phantom steers/greens.
+  left: ['lef', 'lift', 'laft', 'left left', 'lept'],
+  right: ['rite', 'write', 'right right', 'wight'],
   faster: ['fast', 'faster faster', 'fasta', 'vaster', 'fassa'],
   slower: ['slow', 'slower slower', 'sloa', 'slowa', 'lower'],
   // common toddler renderings of the wider vocabulary
