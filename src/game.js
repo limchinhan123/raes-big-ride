@@ -10,6 +10,7 @@ import { StartFlow, showStickerBook, showWalkthrough } from './ui/screens.js';
 import { Music } from './audio/music.js';
 import { Sfx } from './audio/sfx.js';
 import { Companion } from './gameplay/companion.js';
+import { Playtime } from './gameplay/playtime.js';
 
 // The whole game: start flow → the ride → sticker book.
 // QA: ?sim=1 fake voice · ?auto=1 fast unattended run (+ ?interval=1 in
@@ -198,6 +199,7 @@ export function startGame() {
     // finale sequencing
     let finaleStep = 0;
     let summaryDone = false;
+    let playtime = null;
     const finale = () => {
       if (!director.finished) return;
       if (finaleStep === 0) {
@@ -207,22 +209,22 @@ export function startGame() {
         player.setState('stop');
         finaleStep = 2;
       } else if (finaleStep === 2 && player.speed < 0.1) {
-        player.celebrating = true;
-        if (zoe) zoe.celebrating = true;
         director.confetti.burst(player.pos);
         hud.flashScreen();
         sfx.chime();
         hud.praise('🎉 You did it, Rae!');
-        narrator.say('You did it Rae! You rode all the way to the playground! Hooray!');
         finaleStep = 3;
-        this_setT(() => director.confetti.burst(player.pos), 1500);
-        this_setT(() => { sfx.chime(); director.confetti.burst(player.pos); }, 3200);
+        // brief arrival cheer, then she gets to PLAY in the playground
         this_setT(() => {
-          showStickerBook({
-            stickers: director.stickers,
-            onAgain: () => location.reload(),
+          playtime = new Playtime({
+            engine, player, world, speech, sfx, narrator, hud,
+            confetti: director.confetti, uiRoot,
+            onFinish: () => showStickerBook({ stickers: director.stickers, onAgain: () => location.reload() }),
           });
-        }, 5200);
+          playtime.onBell = () => sfx.bell();
+          playtime.start();
+          if (auto) this_setT(() => playtime.end(), 4000);  // QA runs don't linger
+        }, 1600);
       } else if (finaleStep === 3 && !summaryDone) {
         summaryDone = true;
         const outcomes = director.events.map((e) => ({ id: e.id, kind: e.kind, outcome: e.outcome ?? (e.done ? 'done' : 'skipped') }));
@@ -239,11 +241,17 @@ export function startGame() {
 
     let seaside = false;
     engine.onUpdate((dt, t, rawDt) => {
+      meter.update(rawDt);
+      if (playtime && !playtime.finished) {
+        // playtime drives Rae, the camera, and the world itself
+        playtime.update(dt, t);
+        finale();
+        return;
+      }
       player.update(dt);
       zoe?.update(dt, player);
       world.update(dt, t, player.s, player.pos);
       director.update(dt, t);
-      meter.update(rawDt);
       simDriver?.update(dt, t);
       director.carUpdate?.(dt);
       finale();

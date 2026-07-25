@@ -11,7 +11,7 @@ export class VoiceMeter {
     this.voiceHold = 0;
     this.listeners = {};
     this.simLevel = 0;
-    this.gain = 1.6; // mic boost, parent-adjustable
+    this.gain = 3.0; // mic boost — defaults near the top of the range
     this.mobile = isMobileRuntime();
     this.started = false;
   }
@@ -63,9 +63,9 @@ export class VoiceMeter {
       this.simLevel *= Math.exp(-dt * 2.2);
     }
     this.level += (target - this.level) * Math.min(1, dt * 12);
-    if (this.level > 0.16) {
+    if (this.level > 0.1) {
       this.voiceHold += dt;
-      if (this.voiceHold > 0.12) this.#emit('voice');
+      if (this.voiceHold > 0.08) this.#emit('voice');
     } else {
       this.voiceHold = 0;
     }

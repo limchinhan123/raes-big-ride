@@ -50,8 +50,9 @@ export class Player {
     const route = this.route;
     const slope = route.slopeAt(this.s);
 
-    // target speed: pace, hills, and gameplay state
-    const hillFactor = THREE.MathUtils.clamp(1 - slope * 7.2, 0.55, 1.5);
+    // target speed: pace, hills, and gameplay state. Hills bite harder now so
+    // uphill visibly slows to a labour and downhill clearly whooshes.
+    const hillFactor = THREE.MathUtils.clamp(1 - slope * 10.5, 0.42, 1.95);
     const targetFactor = (this.state === 'stop') ? 0 : (this.state === 'slowing' ? 0.22 : 1);
     this.stateFactor += (targetFactor - this.stateFactor) * Math.min(1, dt * (targetFactor < this.stateFactor ? 1.6 : 1.1));
     const vTarget = this.baseSpeed * hillFactor * this.stateFactor;

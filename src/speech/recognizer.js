@@ -15,7 +15,7 @@ export class SpeechManager {
     this.starting = false;
     this.holds = new Set();
     this.mobile = isMobileRuntime();
-    this.restartDelay = this.mobile ? 120 : 250;
+    this.restartDelay = this.mobile ? 120 : 140;
     this.restartTimer = null;
     this.startWatchdog = null;
     this.hasStarted = false;
@@ -97,7 +97,9 @@ export class SpeechManager {
       this.#clearWatchdog();
       if (this.mobile && this.available) this.#renewRecognizer(rec);
       this.#scheduleRestart(this.restartDelay);
-      this.restartDelay = Math.min(2500, this.restartDelay * 1.4);
+      // Desktop continuous recognition restarts near-instantly so a mid-play
+      // 'end' never opens a deaf window; only mobile backs off.
+      if (this.mobile) this.restartDelay = Math.min(2500, this.restartDelay * 1.4);
     };
 
     rec.onstart = () => {
@@ -111,7 +113,7 @@ export class SpeechManager {
       }
       this.running = true;
       this.hasStarted = true;
-      this.restartDelay = this.mobile ? 120 : 250;
+      this.restartDelay = this.mobile ? 120 : 140;
       this.#emit('status', 'listening');
     };
 

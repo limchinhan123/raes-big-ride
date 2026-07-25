@@ -37,8 +37,36 @@ const ALIASES = {
   car: ['cars', 'kar'],
   bell: ['bells', 'bail', 'bao'],
   'ring ring': ['ring', 'ring ring ring', 'ling ling'],
-  left: ['lef', 'lift', 'let', 'laft', 'left left'],
-  right: ['rite', 'write', 'bright', 'right right', 'ride'],
+  left: ['lef', 'lift', 'let', 'laft', 'left left', 'lept', 'lest'],
+  right: ['rite', 'write', 'bright', 'right right', 'ride', 'wight', 'light'],
+  faster: ['fast', 'faster faster', 'fasta', 'vaster', 'fassa'],
+  slower: ['slow', 'slower slower', 'sloa', 'slowa', 'lower'],
+  // common toddler renderings of the wider vocabulary
+  apple: ['appo', 'appu', 'abble', 'apo'],
+  banana: ['nana', 'nanana', 'banan', 'panana'],
+  rabbit: ['wabbit', 'wabbi', 'rabbi'],
+  frog: ['fog', 'fwog', 'frag'],
+  elephant: ['ephant', 'elphant', 'ellie', 'efelant'],
+  butterfly: ['butfly', 'buttfly', 'flutterby', 'butterfy'],
+  strawberry: ['strawbee', 'strabby', 'sawberry'],
+  pineapple: ['pineappo', 'pine', 'appo'],
+  watermelon: ['watamelon', 'melon', 'wawa'],
+  triangle: ['trangle', 'tri', 'triangoo'],
+  circle: ['circoo', 'sircle', 'circ'],
+  square: ['squares', 'sqway', 'skware'],
+  flower: ['flowa', 'fowa', 'flowers'],
+  yellow: ['yellow yellow', 'lello', 'yeyo'],
+  monkey: ['monkeys', 'munky', 'monki'],
+  snail: ['snails', 'nail', 'snai'],
+  turtle: ['tuttle', 'tuɾtle', 'turto'],
+  penguin: ['pengin', 'pengu', 'pingu'],
+  umbrella: ['brella', 'umbella', 'umbwella'],
+  pumpkin: ['punkin', 'pumkin', 'pumpki'],
+  mushroom: ['mushoom', 'moom', 'mushy'],
+  carrot: ['cawwot', 'carot', 'cawot'],
+  balloon: ['baloon', ' balloo', 'bayoon'],
+  train: ['choo choo', 'chtrain', 'twain'],
+  plane: ['aeroplane', 'airplane', 'pane', 'pwane'],
 };
 
 export function normalize(text) {
@@ -70,28 +98,57 @@ function lev(a, b) {
   return prev[n];
 }
 
-// heard: raw ASR text. targets: array of {id, say[]} where say includes the
-// primary word plus hint words. Returns {id, quality} or null.
+// A consonant-ish skeleton so a toddler's rough sounds still land:
+// "wabbit"→"wbt" ~ "rabbit"→"rbt", "gog"→"gg" ~ "dog"→"dg", "appo"~"apple".
+function phon(w) {
+  return w.toLowerCase().replace(/[^a-z]/g, '')
+    .replace(/ph/g, 'f')
+    .replace(/[ckq]/g, 'k')
+    .replace(/[sz]/g, 's')
+    .replace(/(.)\1+/g, '$1')   // collapse doubles
+    .replace(/[aeiou]/g, '')    // drop vowels
+    .slice(0, 8);
+}
+
+// heard: raw ASR text. targets: array of {id, say[]}. Returns {id, quality}
+// or null. Deliberately forgiving — for a pre-reader, a near-miss should
+// count, and every "yes" outcome here is safe (dodge / valid path / stop).
 export function matchWord(heard, targets) {
   const text = normalize(heard);
   if (!text) return null;
   const tokens = text.split(' ');
-  const grams = [...tokens, text];
-  for (let qi = 0; qi < 3; qi++) {
-    for (const target of targets) {
-      const words = [];
-      for (const w of target.say) {
-        const nw = normalize(w);
-        words.push(nw);
-        if (ALIASES[nw]) words.push(...ALIASES[nw]);
-      }
-      for (const w of words) {
+  const grams = [...new Set([...tokens, text])];
+
+  // Build the full candidate set per target once (word + aliases).
+  const cand = targets.map((target) => {
+    const words = new Set();
+    for (const w of target.say) {
+      const nw = normalize(w);
+      if (nw) words.add(nw);
+      for (const a of ALIASES[nw] ?? []) { const na = normalize(a); if (na) words.add(na); }
+    }
+    return { id: target.id, words: [...words] };
+  });
+
+  // Tier by quality: exact → contains → prefix → edit-distance → phonetic.
+  for (let qi = 0; qi < 5; qi++) {
+    for (const t of cand) {
+      for (const w of t.words) {
         for (const g of grams) {
-          if (qi === 0 && g === w) return { id: target.id, quality: 1 };
-          if (qi === 1 && w.length > 3 && g.includes(w)) return { id: target.id, quality: 0.9 };
-          if (qi === 2) {
-            const tol = w.length <= 3 ? 1 : 2;
-            if (lev(g, w) <= tol) return { id: target.id, quality: 0.7 };
+          if (qi === 0 && g === w) return { id: t.id, quality: 1 };
+          if (qi === 1 && w.length > 2 && (g.includes(w) || w.includes(g)) && g.length >= 2)
+            return { id: t.id, quality: 0.9 };
+          if (qi === 2 && w.length >= 4 && g.length >= 3 &&
+              (g.startsWith(w.slice(0, 3)) || w.startsWith(g.slice(0, 3))))
+            return { id: t.id, quality: 0.8 };
+          if (qi === 3) {
+            const tol = w.length <= 3 ? 1 : (w.length <= 6 ? 2 : 3);
+            if (lev(g, w) <= tol) return { id: t.id, quality: 0.7 };
+          }
+          if (qi === 4) {
+            const pw = phon(w), pg = phon(g);
+            if (pw.length >= 2 && pg.length >= 1 && lev(pg, pw) <= (pw.length <= 3 ? 1 : 2))
+              return { id: t.id, quality: 0.6 };
           }
         }
       }

@@ -7,12 +7,12 @@ import { fbm1 } from '../core/prng.js';
 // route, d = signed lateral meters (+ is right of travel).
 
 export const CHAPTERS = [
-  { id: 'heartland', frac: [0.00, 0.18], hills: 0.55, turn: 1.0 },
+  { id: 'heartland', frac: [0.00, 0.18], hills: 0.65, turn: 1.0 },
   { id: 'connector', frac: [0.18, 0.36], hills: 1.00, turn: 1.0 },
-  { id: 'market', frac: [0.36, 0.52], hills: 0.35, turn: 0.8 },
-  { id: 'coast', frac: [0.52, 0.70], hills: 0.16, turn: 0.28 },
-  { id: 'city', frac: [0.70, 0.87], hills: 0.42, turn: 0.7 },
-  { id: 'finale', frac: [0.87, 1.00], hills: 0.30, turn: 0.55 },
+  { id: 'market', frac: [0.36, 0.52], hills: 0.45, turn: 0.8 },
+  { id: 'coast', frac: [0.52, 0.70], hills: 0.18, turn: 0.28 },
+  { id: 'city', frac: [0.70, 0.87], hills: 0.55, turn: 0.7 },
+  { id: 'finale', frac: [0.87, 1.00], hills: 0.32, turn: 0.55 },
 ];
 
 const smoothstep = (a, b, x) => {
@@ -46,11 +46,15 @@ export class Route {
   elevationAt(s) {
     const sc = this.#hillScaleAt(s);
     const base =
-      (fbm1(s * 0.0031 + this.seed * 10, 3, 3) - 0.5) * 2 * 4.2 +
-      (fbm1(s * 0.0093 + 60 + this.seed, 3, 4) - 0.5) * 2 * 1.5;
+      // big, obvious rolling hills — a low-frequency swell she clearly climbs
+      // and coasts down, a steeper mid-frequency roll for real gradient, plus
+      // finer undulation on top
+      (fbm1(s * 0.0018 + this.seed * 3, 2, 9) - 0.5) * 2 * 11.0 +
+      (fbm1(s * 0.0052 + this.seed * 10, 3, 3) - 0.5) * 2 * 6.5 +
+      (fbm1(s * 0.0110 + 60 + this.seed, 3, 4) - 0.5) * 2 * 2.0;
     // settle to a friendly flat approach at the very end (playground arrival)
     const endFlat = smoothstep(0.955, 0.995, s / this.length);
-    return base * sc * (1 - endFlat) + 0.0;
+    return base * sc * (1 - endFlat);
   }
 
   #build() {

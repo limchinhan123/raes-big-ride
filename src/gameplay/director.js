@@ -117,8 +117,8 @@ export class Director {
     const L = this.world.L;
     const m = this.world.marks;
     const keepClear = [m.zebra1, m.zebra2, m.bridge, m.arch].flatMap((s) => [s]);
-    const clear = (s) => keepClear.every((k) => Math.abs(k - s) > 30) &&
-      this.events.every((e) => Math.abs(e.s - s) > 26);
+    const clear = (s) => keepClear.every((k) => Math.abs(k - s) > 34) &&
+      this.events.every((e) => Math.abs(e.s - s) > 36);
     const place = (id, fr, entry) => {
       const [a, b] = this.#chapterRange(id);
       let s = a + fr * (b - a);
@@ -338,12 +338,13 @@ export class Director {
     this.onListen(true);
     // quieter narrator: short lines, and only about half the cards get one
     this.armCount = (this.armCount ?? 0) + 1;
+    // A card appearing is the moment she's most likely to speak — so DON'T
+    // talk over it (talking mutes the mic). Just a soft chime to draw the eye;
+    // only the traffic light gets a short spoken safety cue.
     if (ev.kind === 'light') {
-      this.narrator.say('Red light! Say stop!');
-    } else if (ev.kind === 'fork' && this.armCount % 2 === 1) {
-      this.narrator.say(`${ev.left.say[0]}... or ${ev.right.say[0]}?`);
-    } else if (ev.kind === 'obstacle' && this.armCount % 2 === 0) {
-      this.narrator.say(`Say ${ev.clue.say[0]}!`);
+      this.narrator.say('Red light — say stop!');
+    } else {
+      this.sfx?.pop?.();
     }
   }
 
@@ -448,7 +449,7 @@ export class Director {
 
     // arm next event
     if (!this.active && !this.finished) {
-      const next = this.events.find((e) => !e.done && !e.shown && s > e.s - 42);
+      const next = this.events.find((e) => !e.done && !e.shown && s > e.s - 55);
       if (next) this.#arm(next);
     }
 
@@ -460,25 +461,28 @@ export class Director {
 
     if (ev.kind === 'fork' || ev.kind === 'obstacle') {
       if (!ev.done) {
-        if (dToEvent < 14 && this.player.state === 'ride') this.player.setState('slowing');
-        if (dToEvent < 5) {
+        // ease down smoothly, and only hold at the very last moment
+        if (dToEvent < 20 && this.player.state === 'ride') this.player.setState('slowing');
+        if (dToEvent < 3.5) {
           this.player.setState('stop');
           ev.stuckOpen = true;
         }
-        // gentle prompting loop
-        if (this.stateTimer > 7 && this.promptCount < 3) {
-          this.promptCount++;
-          ev.tries++;
-          this.stateTimer = 3.2;
+        // Nudges are VISUAL ONLY so the mic stays live while she's trying.
+        // First a highlight, then one short spoken hint, then move on quickly.
+        if (this.stateTimer > 3.5 && this.promptCount === 0) {
+          this.promptCount = 1; ev.tries++;
           const word = ev.kind === 'fork' ? ev.left.say[0] : ev.clue.say[0];
           this.hud.encourage(`Try saying: ${word.toUpperCase()}`);
-          this.narrator.say(`Say... ${word}!`);
+        } else if (this.stateTimer > 6.5 && this.promptCount === 1) {
+          this.promptCount = 2; ev.tries++;
+          const word = ev.kind === 'fork' ? ev.left.say[0] : ev.clue.say[0];
+          this.narrator.say(`Say ${word}`);   // brief; hold is short
         }
-        if (this.promptCount >= 3 && this.stateTimer > 5) {
-          // model the word and carry on — never stuck
+        // never jam: after ~9s of quiet, say it together and roll on
+        if (this.stateTimer > 9) {
           const pickId = ev.kind === 'fork' ? ev.left.id : ev.clue.id;
           const word = ev.kind === 'fork' ? ev.left.say[0] : ev.clue.say[0];
-          this.narrator.say(`${word}! Let's keep going!`);
+          this.narrator.say(`${word}!`);
           ev.tries++;
           this.#resolve(ev, pickId, 'auto');
         }

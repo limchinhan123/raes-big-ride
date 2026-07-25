@@ -19,7 +19,6 @@ export const POOL = [
   P('butterfly', 'BUTTERFLY', '🦋', ['butterfly'], 'animal'),
   P('snail', 'SNAIL', '🐌', ['snail'], 'animal'),
   P('crab', 'CRAB', '🦀', ['crab'], 'animal'),
-  P('otter', 'OTTER', '🦦', ['otter'], 'animal'),
   P('turtle', 'TURTLE', '🐢', ['turtle'], 'animal'),
   P('monkey', 'MONKEY', '🐵', ['monkey'], 'animal'),
   P('elephant', 'ELEPHANT', '🐘', ['elephant'], 'animal'),
@@ -126,46 +125,48 @@ const HARDER = new Set([
   'rainbow', 'coconut', 'balloon', 'six', 'clock',
 ]);
 
-function weightFor(chapterId, c) {
-  let w = HARDER.has(c.id) ? 1 : 4;            // simple words 4x as likely
-  if ((FLAVOUR[chapterId] ?? []).includes(c.cat)) w *= 1.6; // gentle theme lean
-  return w;
-}
+// A weighted SHUFFLED DECK dealt without replacement: every simple word goes
+// in twice and every harder word once, then it's shuffled and dealt one card
+// at a time. A word can't come back until the whole deck is used — so a ride
+// of ~70 cards drawn from a ~130-card deck barely repeats anything. (The old
+// "recent 16" bag let words recur every 16 draws, which read as repetitive.)
+let deck = [];
 
-// Recent-history bag: pick a weighted-random card that hasn't come up in the
-// last ~16, so a ride stays varied and never grinds one word. Reshuffled by
-// simply reseeding the caller's rand each new play (see director).
-const recent = [];
-const RECENT_MAX = 16;
-
-function deal(chapterId, rand) {
-  const eligible = POOL.filter((c) => !recent.includes(c.id));
-  const pool = eligible.length > 8 ? eligible : POOL;
-  let total = 0;
-  for (const c of pool) total += weightFor(chapterId, c);
-  let r = rand() * total;
-  let chosen = pool[0];
-  for (const c of pool) { r -= weightFor(chapterId, c); if (r <= 0) { chosen = c; break; } }
-  recent.push(chosen.id);
-  while (recent.length > RECENT_MAX) recent.shift();
-  return chosen;
-}
-
-export function resetDecks() { recent.length = 0; }
-
-export function pickPair(chapterId, rand) {
-  const a = deal(chapterId, rand);
-  let b = deal(chapterId, rand);
-  // avoid two cards that sound or look alike side by side
-  let guard = 0;
-  while (guard++ < 8 && (b.id === a.id || b.label[0] === a.label[0])) {
-    b = deal(chapterId, rand);
+function buildDeck(rand) {
+  const d = [];
+  for (const c of POOL) {
+    d.push(c);
+    if (!HARDER.has(c.id)) d.push(c); // simple words twice as common
   }
+  for (let i = d.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [d[i], d[j]] = [d[j], d[i]];
+  }
+  return d;
+}
+
+// draw the next card, optionally skipping ids/first-letters already on screen
+function draw(rand, avoidIds, avoidLetters) {
+  if (deck.length === 0) deck = buildDeck(rand);
+  for (let i = deck.length - 1; i >= 0; i--) {
+    const c = deck[i];
+    if (avoidIds?.has(c.id)) continue;
+    if (avoidLetters?.has(c.label[0])) continue;
+    return deck.splice(i, 1)[0];
+  }
+  return deck.pop() ?? POOL[0];
+}
+
+export function resetDecks() { deck = []; }
+
+export function pickPair(_chapterId, rand) {
+  const a = draw(rand);
+  const b = draw(rand, new Set([a.id]), new Set([a.label[0]]));
   return [a, b];
 }
 
-export function pickOne(chapterId, rand) {
-  return deal(chapterId, rand);
+export function pickOne(_chapterId, rand) {
+  return draw(rand);
 }
 
 // kept for compatibility with anything still importing CLUES
