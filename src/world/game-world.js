@@ -113,12 +113,18 @@ export class GameWorld {
 
     const shape = (s, d, h, roadY) => {
       let out = h;
-      // pads flatten
+      // pads flatten a level platform for each building/plaza NEAR the pad,
+      // blending back to natural rolling ground beyond it. NB smoothstep is
+      // (x, edge0, edge1) with edge0 < edge1 and rises 0->1; we want 1 AT the
+      // pad and 0 away from it, so invert the rising ramp. (Passing the edges
+      // reversed silently returned 1 everywhere far from a pad, which flattened
+      // the whole map to the last pad's height and left the road cutting
+      // through a dead-flat plane.)
       for (const p of this.pads) {
         r.lateral(s, d, 0, P0);
         r.lateral(p.s, p.d, 0, P1);
         const dist = Math.hypot(P0.x - P1.x, P0.z - P1.z);
-        const w = THREE.MathUtils.smoothstep(dist, p.r + 13, p.r);
+        const w = 1 - THREE.MathUtils.smoothstep(dist, p.r, p.r + 13);
         out = THREE.MathUtils.lerp(out, p.y, w);
       }
       // coast: right side slides into the sea
