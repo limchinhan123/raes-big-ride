@@ -15,7 +15,7 @@ export class SpeechManager {
     this.starting = false;
     this.holds = new Set();
     this.mobile = isMobileRuntime();
-    this.restartDelay = this.mobile ? 120 : 140;
+    this.restartDelay = this.mobile ? 120 : 90;
     this.restartTimer = null;
     this.startWatchdog = null;
     this.hasStarted = false;
@@ -118,7 +118,7 @@ export class SpeechManager {
       }
       this.running = true;
       this.hasStarted = true;
-      this.restartDelay = this.mobile ? 120 : 140;
+      this.restartDelay = this.mobile ? 120 : 90;
       this.#emit('status', 'listening');
     };
 

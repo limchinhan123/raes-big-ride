@@ -364,6 +364,24 @@ export class Director {
     }
   }
 
+  // She reached a card without speaking. Clear it and move on WITHOUT
+  // answering for her — no correct/praise/sticker. A fork just carries straight;
+  // an obstacle gets a gentle safety ease-around only (she'd otherwise ride into
+  // it), never credited as a right answer.
+  #skip(ev) {
+    if (ev.done) return;
+    ev.done = true;
+    ev.outcome = 'skipped';
+    this.onListen(false);
+    if (ev.kind === 'obstacle') { this.player.setLane(ev.safeLane); ev.recentreAt = ev.s + 18; }
+    else this.player.setLane(0);
+    this.hud.clearCards();
+    this.hud.encourage('');
+    if (this.player.state !== 'ride') this.player.setState('ride');
+    console.log('[QA] ' + JSON.stringify({ ev: ev.id, kind: ev.kind, outcome: 'skipped', s: Math.round(this.player.s) }));
+    this.active = null;
+  }
+
   #resolve(ev, id, how) {
     if (ev.done) return;
     if (ev.kind === 'light') { this.#resolveLight(ev, id, how); return; }
@@ -499,21 +517,20 @@ export class Director {
             this.hud.pulseCards?.();
           }
         }
-        // Reached the card unanswered? Just pick the safe default and roll
-        // gently on — SILENTLY. A missed card is skipped, not narrated.
-        if (dToEvent < 2) {
-          ev.tries++;
-          const pickId = ev.kind === 'fork' ? ev.left.id : ev.clue.id;
-          this.#resolve(ev, pickId, 'auto');
-        }
+        // Reached the card unanswered? Clear it and carry on — but the game
+        // must NEVER answer for her: no "correct", no praise, no sticker, and
+        // for a fork no steering. She simply passed the card by.
+        if (dToEvent < 2) this.#skip(ev);
       } else if (dToEvent < -20) {
         this.active = null;
       }
     } else if (ev.kind === 'light') {
       this.#updateLight(ev, dToEvent, dt);
     } else if (ev.kind === 'otters') {
-      if (dToEvent < 12 && !ev.visual.done) this.player.setState('slowing');
-      if (dToEvent < 6 && !ev.visual.done) this.player.setState('stop');
+      // start easing down early so she's already crawling before the stop —
+      // otherwise she coasts past and overshoots into the crossing
+      if (dToEvent < 22 && !ev.visual.done) this.player.setState('slowing');
+      if (dToEvent < 8 && !ev.visual.done) this.player.setState('stop');
       if (ev.visual.done && !ev.done) {
         this.player.setState('ride');
         this.hud.praise('🦦 Bye bye otters!');
@@ -534,8 +551,9 @@ export class Director {
 
   #updateLight(ev, dToEvent, dt) {
     if (ev.phase === 'red-approach' || ev.phase === 'stopped-praised') {
-      if (dToEvent < 14 && this.player.state === 'ride') this.player.setState('slowing');
-      if (dToEvent < 4.5) {
+      // ease down early so the firm brake lands her AT the line, not past it
+      if (dToEvent < 22 && this.player.state === 'ride') this.player.setState('slowing');
+      if (dToEvent < 5) {
         this.player.setState('stop');
         if (!ev.stopT) {
           ev.stopT = 0;

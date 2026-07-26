@@ -54,9 +54,13 @@ export class Player {
     // uphill visibly slows to a labour and downhill clearly whooshes.
     const hillFactor = THREE.MathUtils.clamp(1 - slope * 10.5, 0.42, 1.95);
     const targetFactor = (this.state === 'stop') ? 0 : (this.state === 'slowing' ? 0.22 : 1);
-    this.stateFactor += (targetFactor - this.stateFactor) * Math.min(1, dt * (targetFactor < this.stateFactor ? 1.6 : 1.1));
+    const stopping = this.state === 'stop';
+    // Brake FIRMLY for a full stop so she halts at the line instead of coasting
+    // past it (the otter/car-crossing overshoot); ease gently otherwise.
+    const sfRate = stopping ? 2.6 : (targetFactor < this.stateFactor ? 1.6 : 1.1);
+    this.stateFactor += (targetFactor - this.stateFactor) * Math.min(1, dt * sfRate);
     const vTarget = this.baseSpeed * hillFactor * this.stateFactor;
-    this.speed += (vTarget - this.speed) * Math.min(1, dt * 1.4);
+    this.speed += (vTarget - this.speed) * Math.min(1, dt * (stopping ? 3.6 : 1.4));
     if (this.speed < 0.02 && targetFactor === 0) this.speed = 0;
 
     this.s = Math.min(route.length - 0.5, this.s + this.speed * dt);
