@@ -125,6 +125,7 @@ export function startGame() {
       if (e.key === 'Enter' && director.active?.targets?.length) {
         speech.injectUtterance(director.active.targets[0].say[0]);
       }
+      if (e.key === ' ' || e.code === 'Space') { e.preventDefault(); togglePause(); }
       if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') togglePause();
     });
 

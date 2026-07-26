@@ -67,7 +67,12 @@ export class SpeechManager {
       if (this.rec !== rec || !this.wanted || this.paused || this.holds.size > 0 || document.hidden) return;
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const res = e.results[i];
-        for (let a = 0; a < Math.min(res.length, this.mobile ? 1 : 3); a++) {
+        // Interim guesses use ONLY the top alternative — the lower-ranked ones
+        // are noise that the (deliberately forgiving) matcher would false-fire
+        // on. A final transcript keeps several alternatives for robust fuzzy
+        // matching of a toddler's pronunciation.
+        const maxAlt = res.isFinal ? (this.mobile ? 1 : 3) : 1;
+        for (let a = 0; a < Math.min(res.length, maxAlt); a++) {
           const alt = res[a];
           if (!alt.transcript?.trim()) continue;
           const text = alt.transcript.trim();

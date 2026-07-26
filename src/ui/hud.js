@@ -30,6 +30,8 @@ const CSS = `
   background: rgba(255,255,255,0.92); border-radius: 999px; padding: 8px 18px;
   display: flex; align-items: center; gap: 4px; box-shadow: 0 4px 14px rgba(40,40,60,0.18);
 }
+.mic-pill { transition: box-shadow 0.15s, background 0.15s; }
+.mic-pill.heard { background: rgba(240,250,232,0.98); box-shadow: 0 0 0 3px rgba(127,193,110,0.85), 0 4px 18px rgba(127,193,110,0.5); }
 .mic-pill .dot { font-size: 20px; }
 .mic-pill .bar { width: 5px; border-radius: 3px; background: #d4537e; height: 6px; transition: height 0.08s; }
 .praise {
@@ -248,6 +250,14 @@ export class Hud {
       fill.style.width = `${Math.round(Math.max(0, Math.min(1, local)) * 100)}%`;
     });
     this.dots.forEach((d, i) => d.classList.toggle('active', i === Math.min(chapterIndex, 5)));
+  }
+
+  // instant acknowledgement that her voice was heard (fires on every recognised
+  // word, even before it's matched) — a green glow so she knows to keep going
+  heardPulse() {
+    this.micPill.classList.add('heard');
+    clearTimeout(this._heardT);
+    this._heardT = setTimeout(() => this.micPill.classList.remove('heard'), 450);
   }
 
   setMicLevel(level, listening) {

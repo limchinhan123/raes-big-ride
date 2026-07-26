@@ -208,7 +208,7 @@ export class Director {
     this.ambient = [
       { s: m.mamaShop - 18, text: 'Look! The mama shop!' },
       { s: m.pcn[0] + 10, text: 'The park connector!' },
-      { s: m.market[0] + 12, text: 'The market! So many people!', say: 'The market! Look at all the fruit!' },
+      { s: m.market[0] + 12, text: 'The market! So many people!', say: 'The market!' },
       { s: m.market[1] - 40, text: 'Hawker centre — smells good!' },
       { s: this.world.coastRange[0] + 15, text: 'The sea!', say: 'Look, the sea!' },
       { s: m.bridge - 25, text: 'A big bridge!' },
@@ -227,18 +227,19 @@ export class Director {
     if (this.finished) return;
     this.meter.poke(0.65);
     const ev = this.active;
-    // Interim (non-final) ASR fires several rough, half-formed guesses per
-    // utterance — on desktop up to 3 alternatives each. With the very forgiving
-    // matcher, that noise used to auto-resolve a card before she'd even spoken.
-    // So a provisional guess may only act on a near-exact hit; anything fuzzy
-    // waits for the final transcript (which stays fully forgiving). This applies
-    // on desktop now too, not just mobile.
+    // Provisional (interim) guesses now come as a single top alternative (see
+    // recognizer), so they're clean enough to ACT ON as she speaks — which is
+    // what keeps the ride feeling responsive instead of waiting ~1s for the
+    // final transcript on every slightly-off toddler word. We still hold interim
+    // to a real match (q>=0.7: exact/alias/contains/prefix/edit-distance) and
+    // let only the very loosest phonetic guess wait for the final.
     const strictInterim = !isFinal;
 
-    // a waiting clue card gets first refusal on the word
+    // a waiting clue card gets first refusal on the word — instant "heard you"
+    if (ev?.targets?.length && text && text.trim()) this.hud.heardPulse?.();
     if (ev?.targets?.length) {
       const hit = matchWord(text, ev.targets);
-      if (hit && (!strictInterim || hit.quality >= 0.9)) {
+      if (hit && (!strictInterim || hit.quality >= 0.7)) {
         this.#resolve(ev, hit.id, 'said');
         return;
       }
@@ -340,11 +341,11 @@ export class Director {
     } else if (ev.kind === 'otters') {
       ev.targets = [];
       this.hud.caption('Otters crossing!', 4200);
-      this.narrator.say('Look! An otter family is crossing. Let them pass!');
+      this.narrator.say('Otters! Let them cross.');
     } else if (ev.kind === 'whee') {
       ev.targets = [{ id: 'wheee', say: ['wheee', 'wee', 'yay'] }];
       this.hud.showCards([{ clue: { id: 'wheee', label: 'WHEEE!', glyph: '🎢' }, side: 'center' }]);
-      this.narrator.say('Big slope! Say wheeeee!');
+      this.narrator.say('Say wheee!');
     } else if (ev.kind === 'arrival') {
       ev.targets = [];
       this.#finish();
@@ -379,14 +380,14 @@ export class Director {
       const said = goLeft ? ev.left : ev.right;
       this.hud.resolveCards(id);
       this.hud.praise(`${said.glyph} ${praise}`);
-      if (how === 'said' && this.rand() < 0.45) this.narrator.say(`${said.say[0]}! ${praise}`);
+      if (how === 'said' && this.rand() < 0.28) this.narrator.say(`${said.say[0]}!`);
       this.#sticker(said.glyph);
     } else if (ev.kind === 'obstacle') {
       this.player.setLane(ev.safeLane);
       ev.recentreAt = ev.s + 18;
       this.hud.resolveCards(id);
       this.hud.praise(`${ev.clue.glyph} ${praise}`);
-      if (how === 'said' && this.rand() < 0.45) this.narrator.say(`${ev.clue.say[0]}! ${praise}`);
+      if (how === 'said' && this.rand() < 0.28) this.narrator.say(`${ev.clue.say[0]}!`);
       this.#sticker(ev.clue.glyph);
     } else if (ev.kind === 'whee') {
       this.hud.resolveCards('wheee');
@@ -408,7 +409,7 @@ export class Director {
       ev.phase = 'stopped-praised';
       this.hud.resolveCards('stop');
       this.hud.praise('🛑 Good stop!');
-      this.narrator.say('Stop! Good girl. We wait for the green man.');
+      this.narrator.say('Good stop! Wait for green.');
       this.#sticker('🚦');
     } else if (ev.phase === 'green-wait' && id === 'go') {
       ev.phase = 'done';
@@ -445,7 +446,10 @@ export class Director {
       if (!this.narrated.has(a.s) && s > a.s && s < a.s + 30) {
         this.narrated.add(a.s);
         this.hud.caption(a.text);
-        if (!this.active && a.say) this.narrator.say(a.say);
+        // Caption still shows the sight, but DON'T speak it if a card is close —
+        // a spoken line mutes the mic right as she's meant to answer.
+        const evSoon = this.events.some((e) => !e.done && e.s > s && e.s - s < 42);
+        if (!this.active && a.say && !evSoon) this.narrator.say(a.say);
       }
     }
 
@@ -476,41 +480,31 @@ export class Director {
 
     if (ev.kind === 'fork' || ev.kind === 'obstacle') {
       if (!ev.done) {
-        // ease down smoothly, and only hold at the very last moment
-        if (dToEvent < 20 && this.player.state === 'ride') this.player.setState('slowing');
-        if (dToEvent < 3.5) {
-          this.player.setState('stop');
-          ev.stuckOpen = true;
-        }
-        // THE ANSWER WINDOW IS ANCHORED TO PROXIMITY, NOT TO ARM TIME.
-        // The card arms up to 55m out so she has time to read it — but if the
-        // nudge/auto-advance clock also started then, on quicker or downhill
-        // stretches the whole window (nudge → spoken hint → auto-resolve) ran
-        // out while she was still coasting toward the card: it "passed on its
-        // own" before she spoke, and had already cleared by the time she
-        // reached the spot (leaving only the narrator mid-nag = the jam). So
-        // her clock only ticks once she's genuinely close, and until then the
-        // mic just stays wide open with the card up.
-        const word = ev.kind === 'fork' ? ev.left.say[0] : ev.clue.say[0];
-        if (dToEvent < 15) {
+        // Slow to a gentle roll near the card so she has time to speak — but
+        // NEVER a full stop. A dead halt is exactly what felt like a "jam"; she
+        // keeps creeping and the ride always flows on.
+        if (dToEvent < 16 && this.player.state === 'ride') this.player.setState('slowing');
+        // The CARD is the only "speak now" cue. Prompts here are VISUAL ONLY —
+        // never a disembodied voice reading out the word (confusing on its own,
+        // and worse after a lag). The mic stays wide open the whole time, and
+        // the window is anchored to how close she is, not to when the card armed.
+        if (dToEvent < 14) {
           ev.waitT += dt;
-          // 0–5s: pure silence — card up, mic wide open, let her read & speak.
-          if (ev.waitT > 5 && ev.stage === 0) {
+          if (ev.waitT > 4 && ev.stage === 0) {
             ev.stage = 1; ev.tries++;
-            this.hud.encourage(`Try saying: ${word.toUpperCase()}`); // visual only
-          } else if (ev.waitT > 9 && ev.stage === 1) {
-            // She can't read — model the word ONCE so she can echo it, then the
-            // mic reopens for the rest of the window.
+            const word = ev.kind === 'fork' ? ev.left.say[0] : ev.clue.say[0];
+            this.hud.encourage(`Try saying: ${word.toUpperCase()}`);
+          } else if (ev.waitT > 8 && ev.stage === 1) {
             ev.stage = 2; ev.tries++;
             this.hud.pulseCards?.();
-            this.narrator.say(`Can you say… ${word}?`);
-          } else if (ev.waitT > 13.5) {
-            // Never a dead end: say it together and roll gently on.
-            this.narrator.say(`${word}!`);
-            ev.tries++;
-            const pickId = ev.kind === 'fork' ? ev.left.id : ev.clue.id;
-            this.#resolve(ev, pickId, 'auto');
           }
+        }
+        // Reached the card unanswered? Just pick the safe default and roll
+        // gently on — SILENTLY. A missed card is skipped, not narrated.
+        if (dToEvent < 2) {
+          ev.tries++;
+          const pickId = ev.kind === 'fork' ? ev.left.id : ev.clue.id;
+          this.#resolve(ev, pickId, 'auto');
         }
       } else if (dToEvent < -20) {
         this.active = null;
@@ -523,7 +517,7 @@ export class Director {
       if (ev.visual.done && !ev.done) {
         this.player.setState('ride');
         this.hud.praise('🦦 Bye bye otters!');
-        this.narrator.say('The otters crossed safely. Off we go!');
+        this.narrator.say('Off we go!');
         this.#resolve(ev, 'otters', 'auto');
       }
     } else if (ev.kind === 'whee') {
@@ -547,7 +541,7 @@ export class Director {
           ev.stopT = 0;
           if (ev.phase === 'red-approach') {
             // she didn't say it — model it kindly, no penalty
-            this.narrator.say('We stop at the red light. Stop!');
+            this.narrator.say('Red light. Stop!');
             this.hud.resolveCards('stop');
           }
           if (ev.which === 1) this.#startCars();
@@ -569,7 +563,7 @@ export class Director {
     } else if (ev.phase === 'green-wait') {
       ev.greenT += dt;
       if (ev.greenT > 7) {
-        this.narrator.say('Go! Off we go!');
+        this.narrator.say('Green! Go!');
         this.#resolveLight(ev, 'go', 'auto');
       }
     }
