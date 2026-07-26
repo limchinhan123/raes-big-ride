@@ -425,7 +425,9 @@ export function showWalkthrough({ narrator, sfx, mobile = false } = {}) {
             <div style="font-size:12px;color:#a89f8d;margin-top:12px;">a grown-up can tap for her</div>
           </div>
         </div>`;
-      narrator?.say(s.say);
+      // Instructions are VISUAL ONLY. Reading each step aloud queued up a
+      // backlog of speech that kept playing (and kept the mic muted) straight
+      // into the ride, jamming the first couple of clue cards.
       root.querySelector('#wt-next').onclick = () => {
         sfx?.pop();
         i++;
