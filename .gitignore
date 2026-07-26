@@ -3,3 +3,7 @@ dist/
 .DS_Store
 *.log
 .vercel
+
+# local screen recordings (large; never commit)
+*.mov
+*.mp4
