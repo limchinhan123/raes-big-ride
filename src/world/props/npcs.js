@@ -9,12 +9,12 @@ const SKIN_TONES = [0xf2c9a4, 0xe8b088, 0xc98f62, 0xa8714a];
 const SHIRTS = [0xe8657a, 0x5a8fd0, 0x6fae6a, 0xf2b035, 0x9a7ec8, 0xe88bb0, 0x4aa8a0, 0xd8d8d2];
 const BOTTOMS = [0x3a4a62, 0x6b6353, 0x8a4a3c, 0x4a4a50, 0xd8cfc0];
 
-export function buildPerson(seed, { child = false } = {}) {
+export function buildPerson(seed, { child = false, elderly = false } = {}) {
   const rand = mulberry32(seed);
   const skin = new THREE.MeshStandardMaterial({ color: SKIN_TONES[Math.floor(rand() * SKIN_TONES.length)], roughness: 0.65 });
-  const shirt = new THREE.MeshStandardMaterial({ color: SHIRTS[Math.floor(rand() * SHIRTS.length)], roughness: 0.85 });
+  const shirt = new THREE.MeshStandardMaterial({ color: (elderly ? [0x8a94a6, 0xb0a08a, 0x9a8f7a, 0x7a8a80] : SHIRTS)[Math.floor(rand() * (elderly ? 4 : SHIRTS.length))], roughness: 0.85 });
   const bottom = new THREE.MeshStandardMaterial({ color: BOTTOMS[Math.floor(rand() * BOTTOMS.length)], roughness: 0.9 });
-  const hair = new THREE.MeshStandardMaterial({ color: rand() < 0.85 ? 0x2c2622 : 0x6b6353, roughness: 0.75 });
+  const hair = new THREE.MeshStandardMaterial({ color: elderly ? (rand() < 0.5 ? 0xe2e0dc : 0xcbc6bd) : (rand() < 0.85 ? 0x2c2622 : 0x6b6353), roughness: elderly ? 0.92 : 0.75 });
 
   const sc = child ? 0.62 : 0.92 + rand() * 0.14;
   const g = new THREE.Group();
@@ -38,10 +38,16 @@ export function buildPerson(seed, { child = false } = {}) {
   hairCap.position.set(0, 0.57 * sc, -0.015 * sc);
   hairCap.scale.set(1, 0.92, 0.95);
   hips.add(hairCap);
-  if (rand() < 0.3) { // ponytail or bun
+  if (!elderly && rand() < 0.3) { // ponytail or bun
     const bun = new THREE.Mesh(new THREE.SphereGeometry(0.05 * sc, 8, 6), hair);
     bun.position.set(0, 0.6 * sc, -0.1 * sc);
     hips.add(bun);
+  }
+  if (elderly) { // stooped upper body, head carried forward
+    torso.rotation.x = 0.3;
+    torso.position.set(0, 0.235 * sc, 0.05 * sc);
+    head.position.set(0, 0.5 * sc, 0.1 * sc);
+    hairCap.position.set(0, 0.52 * sc, 0.085 * sc);
   }
 
   const limbs = {};
@@ -49,17 +55,27 @@ export function buildPerson(seed, { child = false } = {}) {
     const leg = new THREE.Group();
     leg.position.set(side * 0.06 * sc, -0.02 * sc, 0);
     hips.add(leg);
-    const legMesh = new THREE.Mesh(new THREE.CapsuleGeometry(0.05 * sc, 0.36 * sc, 4, 8), key === 'L' ? bottom : bottom);
+    const legMesh = new THREE.Mesh(new THREE.CapsuleGeometry(0.05 * sc, 0.36 * sc, 4, 8), bottom);
     legMesh.position.y = -0.24 * sc;
     legMesh.castShadow = true;
     leg.add(legMesh);
+    const foot = new THREE.Mesh(new THREE.BoxGeometry(0.075 * sc, 0.05 * sc, 0.15 * sc), bottom);
+    foot.position.set(0, -0.45 * sc, 0.045 * sc);
+    foot.castShadow = true;
+    leg.add(foot);
     const arm = new THREE.Group();
     arm.position.set(side * 0.15 * sc, 0.42 * sc, 0);
     hips.add(arm);
-    const armMesh = new THREE.Mesh(new THREE.CapsuleGeometry(0.038 * sc, 0.3 * sc, 4, 8), skin);
-    armMesh.position.y = -0.18 * sc;
+    const armMesh = new THREE.Mesh(new THREE.CapsuleGeometry(0.038 * sc, 0.3 * sc, 4, 8), shirt);
+    armMesh.position.y = -0.16 * sc;
     armMesh.castShadow = true;
     arm.add(armMesh);
+    const forearm = new THREE.Mesh(new THREE.CapsuleGeometry(0.035 * sc, 0.14 * sc, 4, 8), skin);
+    forearm.position.y = -0.33 * sc;
+    arm.add(forearm);
+    const hand = new THREE.Mesh(new THREE.SphereGeometry(0.045 * sc, 8, 6), skin);
+    hand.position.y = -0.44 * sc;
+    arm.add(hand);
     limbs[`leg${key}`] = leg;
     limbs[`arm${key}`] = arm;
   }

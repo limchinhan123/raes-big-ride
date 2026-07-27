@@ -165,11 +165,11 @@ export class Director {
     this.events.push({ kind: 'light', s: m.zebra2, chapter: 'city', which: 1, tries: 0, done: false });
     // road crossings — Rae's favourite: stop and watch them cross, spread out
     for (const [ch, fr, crosser] of [
-      ['heartland', 0.55, 'hen'],
-      ['connector', 0.50, 'duck'],
+      ['heartland', 0.30, 'elder'],  // grandma & grandpa near the start
+      ['connector', 0.48, 'duck'],
       ['connector', 0.86, 'cow'],
+      ['market', 0.55, 'hen'],
       ['coast', 0.72, 'otter'],
-      ['city', 0.52, 'elder'],
     ]) place(ch, fr, { kind: 'crossing', crosser });
     // whee on the steepest downhill in the connector
     const [c0, c1] = this.#chapterRange('connector');
