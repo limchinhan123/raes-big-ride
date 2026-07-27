@@ -364,32 +364,36 @@ export class GameWorld {
       scene.add(tl.group);
       this.trafficLights.push({ ...tl, s: zs });
     }
-    // crossing cars wait beside zebra2 on a small side road
-    this.cars = [];
+    // crossing cars wait beside BOTH zebras on a small side road, so each
+    // traffic light is a real "stop → watch the cars cross → go" moment
+    this.carsByLight = [[], []];
     const carColors = [0xd8dade, 0x8fb3d8, 0xd8a03c];
     // side road stops at the kerbs on each side — never crosses the crowned
     // carriageway (that z-fights and flickers)
     const sideMat = new THREE.MeshStandardMaterial({ color: 0x5c5e62, roughness: 0.95 });
-    const zright = r.rightAt(this.marks.zebra2, V3());
-    for (const side of [-1, 1]) {
-      const wrap = new THREE.Group();
-      const half = new THREE.Mesh(new THREE.PlaneGeometry(5.5, 26), sideMat);
-      half.rotation.x = -Math.PI / 2;
-      half.receiveShadow = true;
-      wrap.add(half);
-      wrap.position.copy(r.lateral(this.marks.zebra2, side * 16.6, r.yAt(this.marks.zebra2) + 0.02, V3()));
-      wrap.rotation.y = Math.atan2(zright.x, zright.z);
-      scene.add(wrap);
-    }
-    for (let i = 0; i < 3; i++) {
-      const car = buildCar(carColors[i]);
-      car.position.copy(r.lateral(this.marks.zebra2, 12 + i * 8, r.yAt(this.marks.zebra2), V3()));
-      const cd = r.rightAt(this.marks.zebra2, V3()).negate();
-      car.rotation.y = Math.atan2(cd.x, cd.z);
-      car.userData.laneOffset = 12 + i * 8;
-      scene.add(car);
-      this.cars.push(car);
-    }
+    [this.marks.zebra1, this.marks.zebra2].forEach((zs, which) => {
+      const zright = r.rightAt(zs, V3());
+      for (const side of [-1, 1]) {
+        const wrap = new THREE.Group();
+        const half = new THREE.Mesh(new THREE.PlaneGeometry(5.5, 26), sideMat);
+        half.rotation.x = -Math.PI / 2;
+        half.receiveShadow = true;
+        wrap.add(half);
+        wrap.position.copy(r.lateral(zs, side * 16.6, r.yAt(zs) + 0.02, V3()));
+        wrap.rotation.y = Math.atan2(zright.x, zright.z);
+        scene.add(wrap);
+      }
+      const cd = r.rightAt(zs, V3()).negate();
+      for (let i = 0; i < 3; i++) {
+        const car = buildCar(carColors[i]);
+        car.position.copy(r.lateral(zs, 12 + i * 8, r.yAt(zs), V3()));
+        car.rotation.y = Math.atan2(cd.x, cd.z);
+        car.userData.laneOffset = 12 + i * 8;
+        scene.add(car);
+        this.carsByLight[which].push(car);
+      }
+    });
+    this.cars = this.carsByLight[1]; // back-compat alias (city set)
 
     // --- finale: playground, plushies, balloons, benches
     const pgPad = this.pads.find((p) => p.kind === 'playground');

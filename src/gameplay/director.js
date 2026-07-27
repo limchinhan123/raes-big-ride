@@ -3,6 +3,16 @@ import { mulberry32 } from '../core/prng.js';
 import { matchWord } from '../speech/matcher.js';
 import { pickPair, pickOne, resetDecks, CLUES } from './clues.js';
 import { buildSleepingCat, buildPigeons, buildPuddle, buildBeachBall, buildCone, buildAuntie, buildOtterFamily } from './obstacles.js';
+import { buildHenFamily, buildDuckFamily, buildCow, buildElderCrossing } from './crossers.js';
+
+// Road-crossing families Rae stops to watch — pure delight, never a fail.
+const CROSSERS = {
+  otter: { build: buildOtterFamily,   glyph: '🦦', caption: 'Otters crossing!',  say: 'Otters! Let them cross.',                bye: 'Bye bye otters!' },
+  hen:   { build: buildHenFamily,     glyph: '🐔', caption: 'Hen and chicks!',   say: 'A hen and her little chicks! Let them cross.', bye: 'Bye bye chickies!' },
+  duck:  { build: buildDuckFamily,    glyph: '🦆', caption: 'Ducks crossing!',   say: 'A duck and her ducklings! Let them waddle across.', bye: 'Bye bye ducks!' },
+  cow:   { build: buildCow,           glyph: '🐄', caption: 'A cow is crossing!', say: 'Moo! A big cow is crossing.',            bye: 'Bye bye cow!' },
+  elder: { build: buildElderCrossing, glyph: '🧓', caption: 'People crossing',    say: 'Some grandpas and grandmas. Let them cross safely.', bye: 'Off we go!' },
+};
 
 // The conductor: builds the interaction timeline, arms clue cards as Rae
 // approaches, listens for her words, slows her gently when she's quiet, and
@@ -153,7 +163,14 @@ export class Director {
     // spectacle + lights + joy
     this.events.push({ kind: 'light', s: m.zebra1, chapter: 'heartland', which: 0, tries: 0, done: false });
     this.events.push({ kind: 'light', s: m.zebra2, chapter: 'city', which: 1, tries: 0, done: false });
-    place('coast', 0.72, { kind: 'otters' });
+    // road crossings — Rae's favourite: stop and watch them cross, spread out
+    for (const [ch, fr, crosser] of [
+      ['heartland', 0.55, 'hen'],
+      ['connector', 0.50, 'duck'],
+      ['connector', 0.86, 'cow'],
+      ['coast', 0.72, 'otter'],
+      ['city', 0.52, 'elder'],
+    ]) place(ch, fr, { kind: 'crossing', crosser });
     // whee on the steepest downhill in the connector
     const [c0, c1] = this.#chapterRange('connector');
     let bestS = c0, bestSlope = 1;
@@ -170,7 +187,7 @@ export class Director {
     // spawn obstacle/spectacle visuals now
     for (const ev of this.events) {
       if (ev.kind === 'obstacle') this.#spawnObstacle(ev);
-      if (ev.kind === 'otters') this.#spawnOtters(ev);
+      if (ev.kind === 'crossing') this.#spawnCrossing(ev);
     }
     // ambient pigeons near the mama shop
     this.pigeons = buildPigeons(9);
@@ -193,8 +210,8 @@ export class Director {
     this.world.engine.scene.add(ev.visual.group);
   }
 
-  #spawnOtters(ev) {
-    ev.visual = buildOtterFamily();
+  #spawnCrossing(ev) {
+    ev.visual = (CROSSERS[ev.crosser] ?? CROSSERS.otter).build();
     const pos = this.world.route.lateral(ev.s, 0, this.world.route.yAt(ev.s) + 0.04, V3());
     ev.visual.group.position.copy(pos);
     const dir = this.world.route.dirAt(ev.s, V3());
@@ -338,10 +355,11 @@ export class Director {
       this.world.trafficLights[ev.which].setState('red');
       ev.targets = [{ id: 'stop', say: ['stop'] }];
       this.hud.showCards([{ clue: { id: 'stop', label: 'STOP', glyph: '🔴' }, side: 'center', kind: 'stop' }]);
-    } else if (ev.kind === 'otters') {
+    } else if (ev.kind === 'crossing') {
       ev.targets = [];
-      this.hud.caption('Otters crossing!', 4200);
-      this.narrator.say('Otters! Let them cross.');
+      const info = CROSSERS[ev.crosser] ?? CROSSERS.otter;
+      this.hud.caption(info.caption, 4200);
+      this.narrator.say(info.say);
     } else if (ev.kind === 'whee') {
       ev.targets = [{ id: 'wheee', say: ['wheee', 'wee', 'yay'] }];
       this.hud.showCards([{ clue: { id: 'wheee', label: 'WHEEE!', glyph: '🎢' }, side: 'center' }]);
@@ -413,8 +431,8 @@ export class Director {
       this.confetti.burst(this.player.pos);
       this.hud.flashScreen();
       this.#sticker('🎢');
-    } else if (ev.kind === 'otters') {
-      this.#sticker('🦦');
+    } else if (ev.kind === 'crossing') {
+      this.#sticker((CROSSERS[ev.crosser] ?? CROSSERS.otter).glyph);
     }
     if (this.player.state !== 'ride') this.player.setState('ride');
     this.hud.encourage('');
@@ -526,16 +544,16 @@ export class Director {
       }
     } else if (ev.kind === 'light') {
       this.#updateLight(ev, dToEvent, dt);
-    } else if (ev.kind === 'otters') {
+    } else if (ev.kind === 'crossing') {
       // start easing down early so she's already crawling before the stop —
       // otherwise she coasts past and overshoots into the crossing
       if (dToEvent < 22 && !ev.visual.done) this.player.setState('slowing');
       if (dToEvent < 8 && !ev.visual.done) this.player.setState('stop');
       if (ev.visual.done && !ev.done) {
         this.player.setState('ride');
-        this.hud.praise('🦦 Bye bye otters!');
-        this.narrator.say('Off we go!');
-        this.#resolve(ev, 'otters', 'auto');
+        const info = CROSSERS[ev.crosser] ?? CROSSERS.otter;
+        this.hud.praise(`${info.glyph} ${info.bye}`);
+        this.#resolve(ev, 'crossing', 'auto');
       }
     } else if (ev.kind === 'whee') {
       if (!ev.done && dToEvent < -55) {
@@ -562,12 +580,12 @@ export class Director {
             this.narrator.say('Red light. Stop!');
             this.hud.resolveCards('stop');
           }
-          if (ev.which === 1) this.#startCars();
+          this.#startCars(ev.which); // both lights now have cars crossing
         }
       }
       if (ev.stopT !== undefined) {
         ev.stopT += dt;
-        const waitFor = ev.which === 1 ? 6.5 : 4.5;
+        const waitFor = 6.5; // give the cars time to cross at either light
         if (ev.stopT > waitFor) {
           ev.phase = 'green-wait';
           ev.greenT = 0;
@@ -587,11 +605,11 @@ export class Director {
     }
   }
 
-  #startCars() {
-    // cars glide across the zebra while Rae waits
-    const cars = this.world.cars;
+  #startCars(which = 1) {
+    // cars glide across the zebra while Rae waits at the red light
+    const cars = this.world.carsByLight ? this.world.carsByLight[which] : this.world.cars;
     const r = this.world.route;
-    const zs = this.world.marks.zebra2;
+    const zs = which === 0 ? this.world.marks.zebra1 : this.world.marks.zebra2;
     cars.forEach((car, i) => {
       car.userData.crossT = -i * 1.6;
     });
