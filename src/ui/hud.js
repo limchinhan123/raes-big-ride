@@ -34,6 +34,23 @@ const CSS = `
 .mic-pill.heard { background: rgba(240,250,232,0.98); box-shadow: 0 0 0 3px rgba(127,193,110,0.85), 0 4px 18px rgba(127,193,110,0.5); }
 .mic-pill .dot { font-size: 20px; }
 .mic-pill .bar { width: 5px; border-radius: 3px; background: #d4537e; height: 6px; transition: height 0.08s; }
+.voice-unavailable {
+  position: fixed; left: 50%; transform: translateX(-50%); bottom: 8vh; z-index: 55;
+  max-width: min(92vw, 420px); padding: 10px 14px; border-radius: 16px;
+  background: rgba(255,253,247,0.97); color: #5f4d45; text-align: center;
+  box-shadow: 0 8px 24px rgba(40,40,60,0.28); font-size: 14px; font-weight: 700;
+  pointer-events: auto;
+}
+.voice-unavailable button {
+  display: block; margin: 8px auto 0; border: none; border-radius: 999px; padding: 8px 14px;
+  background: #ffe9f2; color: #6b3350; font: inherit; cursor: pointer;
+}
+.voice-unavailable button:disabled { display: none; }
+.hud-root.voice-unavailable-active .mic-pill { display: none; }
+.hud-root.voice-unavailable-active .clue-wrap { bottom: 21vh; }
+@media (max-height: 620px) {
+  .hud-root.voice-unavailable-active .clue-wrap { bottom: 25vh; }
+}
 .praise {
   position: fixed; left: 50%; top: 30%; transform: translate(-50%,-50%) scale(0.5); opacity: 0;
   font-size: 64px; font-weight: 700; color: #fff; text-shadow: 0 4px 0 rgba(180,90,40,0.45), 0 8px 30px rgba(0,0,0,0.3);
@@ -128,6 +145,16 @@ export class Hud {
       this.bars.push(b);
     }
     this.el.appendChild(this.micPill);
+
+    this.voiceUnavailableEl = document.createElement('div');
+    this.voiceUnavailableEl.className = 'voice-unavailable';
+    this.voiceUnavailableEl.hidden = true;
+    this.voiceUnavailableMessage = document.createElement('div');
+    this.voiceUnavailableButton = document.createElement('button');
+    this.voiceUnavailableButton.type = 'button';
+    this.voiceUnavailableButton.textContent = 'Continue';
+    this.voiceUnavailableEl.append(this.voiceUnavailableMessage, this.voiceUnavailableButton);
+    this.el.appendChild(this.voiceUnavailableEl);
 
     this.praiseEl = document.createElement('div');
     this.praiseEl.className = 'praise';
@@ -267,5 +294,24 @@ export class Hud {
       b.style.height = `${listening ? h : 4}px`;
       b.style.background = listening ? '#d4537e' : '#c8c2b6';
     });
+  }
+
+  // Kept separate from the normal mic pill: this is only a grown-up escape
+  // hatch after a terminal browser microphone failure.
+  setVoiceUnavailable(message, actionLabel, onContinue) {
+    this.voiceUnavailableEl.hidden = false;
+    this.el.classList.add('voice-unavailable-active');
+    this.voiceUnavailableMessage.textContent = message;
+    const canContinue = typeof onContinue === 'function';
+    this.voiceUnavailableButton.textContent = actionLabel ?? 'Continue';
+    this.voiceUnavailableButton.disabled = !canContinue;
+    this.voiceUnavailableButton.onclick = canContinue ? onContinue : null;
+  }
+
+  clearVoiceUnavailable() {
+    this.voiceUnavailableEl.hidden = true;
+    this.el.classList.remove('voice-unavailable-active');
+    this.voiceUnavailableButton.disabled = true;
+    this.voiceUnavailableButton.onclick = null;
   }
 }
