@@ -70,6 +70,14 @@ describe('matchWord', () => {
       .toEqual({ id: 'bell', quality: 1 });
   });
 
+  it('keeps only the formerly effective flower aliases exact', () => {
+    const flower = [target('flower', 'flower')];
+
+    expect(matchWord('flowa', flower)).toEqual({ id: 'flower', quality: 1 });
+    expect(matchWord('flour', flower)).toEqual({ id: 'flower', quality: 0.8 });
+    expect(matchWord('fella', flower)).toEqual({ id: 'flower', quality: 0.6 });
+  });
+
   it('uses target order to resolve equally strong matching tokens', () => {
     const heard = 'cat dog';
     expect(matchWord(heard, [target('cat', 'cat'), target('dog', 'dog')]))
