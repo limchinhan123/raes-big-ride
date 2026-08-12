@@ -16,6 +16,12 @@ Voice play needs browser microphone permission. The app uses the browser's Web
 Speech API with Singapore English (`en-SG`) and uses the recognition result to
 control the game.
 
+The desktop microphone check also starts a separate browser `getUserMedia()`
+stream and routes it through an in-page Web Audio analyser for level feedback
+and voice activity. The app code does not record, persist, or send that
+analyser audio. On mobile, the app reuses Web Speech activity instead of
+opening this second stream.
+
 The app code does not record or persist voice audio or transcripts, and does
 not send them to a Rae's Big Ride backend or analytics service. Browser speech
 recognition and its provider may process microphone audio and recognition
