@@ -2,118 +2,155 @@
 
 # 🚲 Rae's Big Ride
 
-### A voice-controlled 3D adventure that teaches little ones to *look, name, and speak* — by riding through Singapore.
+### A voice-guided 3D ride through six Singapore-inspired scenes
 
-**No buttons. No screens to poke. She talks, and the world moves.**
+[![CI](https://github.com/limchinhan123/raes-big-ride/actions/workflows/ci.yml/badge.svg)](https://github.com/limchinhan123/raes-big-ride/actions/workflows/ci.yml)
 
-### ▶️ **[Play it here → raes-big-ride.vercel.app](https://raes-big-ride.vercel.app/)**
-*(best in Google Chrome, with the microphone allowed)*
+**[Play the live demo](https://raes-big-ride.vercel.app/) · [Report an issue](https://github.com/limchinhan123/raes-big-ride/issues) · [Read the release notes](docs/releases/v1.0.0.md)**
 
-![Rae and her cousin Zoe riding, reading the words APPLE and DUCK aloud to choose their path](docs/img/hero_voice.jpg)
-
-</div>
-
----
-
-## 🎙️ The idea: her voice is the controller
-
-Most toddler "games" are a finger mashing a tablet. This one is the opposite. A child rides a bicycle or scooter down a gentle, endless road, and to steer, avoid a sleeping cat, stop at a red light, or pick which way to go — **she reads the word on screen out loud.**
-
-> She sees a card that says **`CAT`** with a picture of a cat. She says *"cat!"* — and her little rider swerves around it. That's the whole game. Say the word, the world responds.
-
-It listens through the microphone (Chrome's Singapore-English speech engine), and it is **relentlessly gentle**: if she stays quiet, the bike just slows and waits, a friendly voice offers the word, and after a few tries it says it *for* her and rolls on. **There is no way to fail, and it never gets stuck.**
-
-<div align="center">
-
-![A short clip riding down the park-connector path](docs/img/ride.gif)
-
-*Real-time, rendered in the browser — no video, no pre-baked cutscene.*
+![Gameplay screenshot: two riders choose between APPLE and DUCK cards on a Singapore-inspired road](docs/img/hero_voice.jpg)
 
 </div>
 
----
+Rae's Big Ride is a browser-based 3D adventure for young children. A player can
+ride through a neighbourhood, park connector, market, coast, city, and
+playground while naming the word shown on the current card. Voice is the
+primary interaction where browser speech recognition is available, with
+touch, keyboard, and grown-up-assist fallbacks when it is not.
 
-## 🧠 Why it's genuinely good for a child
+> **Experimental, sole-maintainer project.** This is a personal open-source
+> project maintained by Brandon Lim, without a support SLA or compatibility
+> guarantee. It is a playful experience, not speech therapy, a learning
+> assessment, or road-safety instruction.
 
-This isn't screen-time to keep a child quiet — it's **spoken-language practice disguised as a bike ride.** Every interaction is a tiny, low-pressure invitation to *notice something and say its name* — which is exactly how early vocabulary and confident speech are built.
+![A short captured gameplay clip](docs/img/ride.gif)
 
-| What she practises | How the game does it |
+*The GIF is captured gameplay. The ride is rendered in real time in the
+browser; it is not a pre-baked cutscene.*
+
+## How the ride works
+
+1. Choose a bicycle or scooter, colour, pace, and whether Zoe rides along.
+2. Complete the microphone check if voice is available, then start the ride.
+3. When a word card appears, say its displayed target to affect the current
+   choice or event.
+4. Reach the playground, explore the final playtime interaction, and collect
+   the ride's stickers.
+
+The prompt pool has **83 distinct IDs** across animals, food, shapes, numbers,
+letters, everyday objects, and nature. The active deck is intentionally
+weighted to **149 entries**: 66 simpler prompts appear twice and 17 harder
+prompts appear once. Repetition can therefore occur within a deck; this is not
+a fixed curriculum or a promise of educational outcomes.
+
+## Controls and fallbacks
+
+Browser speech support and microphone permission vary by device and provider.
+The game uses the Web Speech API with Singapore English (`en-SG`) when it is
+available.
+
+| Situation | Available controls |
 | --- | --- |
-| 🗣️ **Talking out loud & articulation** | The entire game is powered by her voice. Shy kids warm up because there's no audience — just a bike that likes when she speaks. |
-| 👀 **Recognising the world** | Cards are everyday things a 3–4-year-old knows: animals, fruit, vegetables, shapes, numbers, letters — each paired with a clear picture. |
-| 🔤 **Early phonics & letters** | `B` shows a 🦋 and asks for *"butterfly"* — linking letter, sound, and object. |
-| 🔢 **Counting & numbers** | *"three shells"* 🐚🐚🐚 — numbers taught as real quantities, not abstract digits. |
-| 🚦 **Road sense & safety** | She learns to **stop at red, go on green**, and wait for cars to pass — rehearsing real kerbside habits. |
-| 🤝 **Turn-taking & togetherness** | She can ride with her cousin **Zoe** alongside — sharing the adventure, not competing. |
-| 💪 **Confidence & agency** | Her words visibly change the world. Cause and effect, spoken by her, every few seconds. |
+| Voice available — desktop | Say the active card's target. `left`, `right`, `faster`, and `slower` are desktop-only voice commands. Say `ring ring` for the bell. |
+| Voice available — mobile | Say the active card's target; `ring ring` remains available. Mobile deliberately does **not** enable voice steering or speed commands. |
+| Touch | Tap the left or right third of the ride screen to steer. |
+| Keyboard / pause | `←` / `→` steer; `Enter` runs the grown-up current-card action; `Space`, `P`, `Esc`, or the pause button opens the pause controls. |
+| Voice unavailable | The game shows a grown-up action for the current card; it resolves that card's first configured target. Touch and keyboard controls remain available. |
 
-Vocabulary is dealt from a **shuffled 80-word deck that never repeats a word until the deck runs dry**, and reshuffles every ride — so it stays fresh instead of drilling the same handful of words.
+The pause menu also offers music volume, microphone sensitivity, helper-voice,
+restart, and walkthrough controls. Voice recognition is not guaranteed to work
+on every browser, operating system, network, microphone, or acoustic setting.
 
----
+## Engineering focus
 
-## 🇸🇬 A journey through six recognisable places
+The repository keeps the experimental product small while exposing a few
+deliberate seams for maintenance and future reuse:
 
-One continuous ~5–7 minute ride from her neighbourhood to the playground, with the light warming from morning to golden afternoon as she arrives.
+- [`src/speech/matchingEngine.js`](src/speech/matchingEngine.js) is a
+  vocabulary-neutral, configurable matcher with exact, containment, prefix,
+  edit-distance, and phonetic tiers. Rae-specific recognition alternatives
+  stay in [`src/speech/raeLexicon.js`](src/speech/raeLexicon.js).
+- [`src/speech/recognizer.js`](src/speech/recognizer.js) owns the browser speech
+  lifecycle: continuous desktop listening, renewed mobile sessions, bounded
+  recovery, visibility changes, and terminal fallback states.
+- [`src/speech/simInput.js`](src/speech/simInput.js) and the colocated Vitest
+  suites provide deterministic test seams without claiming to reproduce a
+  physical microphone or speech provider.
+- Three.js, Web Audio, Vite, and vanilla ES modules power a procedural runtime
+  without a downloaded 3D-model, image, or audio asset pipeline.
+
+## Six places on the ride
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/img/ch1_heartland.jpg" alt="HDB heartland"><br><b>🏠 HDB heartland</b><br>Pastel blocks, void decks, a mama shop, laundry poles — home.</td>
-    <td width="50%"><img src="docs/img/ch2_connector.jpg" alt="Park connector"><br><b>🌳 Park connector</b><br>The red PCN path under rain trees, with cyclists and butterflies.</td>
+    <td width="50%"><img src="docs/img/ch1_heartland.jpg" alt="Screenshot of the Heartland chapter"><br><b>🏠 Heartland</b><br>HDB blocks, void decks, a mama shop, and laundry poles.</td>
+    <td width="50%"><img src="docs/img/ch2_connector.jpg" alt="Screenshot of the Park Connector chapter"><br><b>🌳 Park connector</b><br>A path under rain trees, with cyclists and butterflies.</td>
   </tr>
   <tr>
-    <td><img src="docs/img/ch3_market.jpg" alt="Wet market and hawker centre"><br><b>🍎 Wet market & hawker centre</b><br>Striped awnings, heaped produce, crowds — where fruit &amp; veg words live.</td>
-    <td><img src="docs/img/ch4_coast.jpg" alt="East Coast"><br><b>🌊 East Coast</b><br>The sea, palms and sand, ships on the horizon, an otter family crossing.</td>
+    <td><img src="docs/img/ch3_market.jpg" alt="Screenshot of the Market chapter"><br><b>🍎 Market</b><br>Stalls, produce, and a hawker-centre setting.</td>
+    <td><img src="docs/img/ch4_coast.jpg" alt="Screenshot of the Coast chapter"><br><b>🌊 Coast</b><br>Sea, palms, sand, ships, and otters.</td>
   </tr>
   <tr>
-    <td><img src="docs/img/ch5_city.jpg" alt="City"><br><b>🏙️ City peek</b><br>The skyline in haze, an overhead bridge, traffic lights and crossing cars.</td>
-    <td><img src="docs/img/ch6_playground.jpg" alt="Playground finale"><br><b>🛝 Playground finale</b><br>A balloon arch, slides, and her plushies waiting to cheer her in.</td>
+    <td><img src="docs/img/ch5_city.jpg" alt="Screenshot of the City chapter"><br><b>🏙️ City</b><br>Skyline views, an overhead bridge, traffic lights, and crossings.</td>
+    <td><img src="docs/img/ch6_playground.jpg" alt="Screenshot of the Playground finale"><br><b>🛝 Playground</b><br>A balloon arch, slides, and a playtime finale.</td>
   </tr>
 </table>
 
-Every runtime tree, building, character, texture, note of music, and sound effect is **generated in code** — the game does not load downloaded 3D models, images, or audio files. This repository also includes committed documentation screenshots and a gameplay GIF; see [Asset provenance](ASSET_PROVENANCE.md).
+## Quick start
 
----
-
-## ▶️ How to play
-
-1. Open **[raes-big-ride.vercel.app](https://raes-big-ride.vercel.app/)** in **Google Chrome** (voice needs Chrome; keep internet on).
-2. **Allow the microphone** when asked.
-3. Tap **Let's play** → pick a ride 🚲/🛴, a colour, a pace 🐢/🐇/🚀, and whether cousin **Zoe** comes along.
-4. A quick coached **how-to-play** shows first-timers the ropes, then — off she goes!
-
-She can say these **any time**, even mid-ride: **`left`** · **`right`** · **`faster`** · **`slower`** · **`ring ring`** (the bell). Clue cards add their own words on top.
-
-**Grown-up helpers** (in the ⏸ / `Esc` menu, or keys): `←` `→` steer · `Enter` answers a card · music, mic sensitivity, and helper-voice toggle · restart · replay the walkthrough. On a phone or tablet, **tap the left or right side of the screen to steer.**
-
----
-
-## 🛠️ Built with
-
-- **[three.js](https://threejs.org/)** — WebGL2, custom sky & water shaders, soft shadows, a bloom + colour-grade post pipeline
-- **Web Speech API** (`en-SG`) for recognition, **Web Speech Synthesis** for the friendly narrator
-- **Web Audio** — the soothing piano/pad score and every sound effect are synthesised live, and the music auto-ducks whenever the game is listening
-- **Vite** + vanilla ES modules · everything procedural · app-side gameplay runs in the browser. The game code does not send speech transcripts to a Rae's Big Ride backend or analytics service; browser speech processing is governed by the browser and its provider. See [Privacy](PRIVACY.md).
+Requires Node.js `^20.19.0 || >=22.12.0`.
 
 ```bash
-npm install
-npm run dev     # then open http://localhost:5178 in Chrome
+npm ci
+npm test
+npm run build
+npm run dev
 ```
 
----
+Open the local Vite URL in a browser. The current suite has **42 unit tests**;
+the [CI workflow](.github/workflows/ci.yml) runs `npm ci`, `npm test`, and
+`npm run build` on pull requests and pushes to `main`. It does not substitute
+for real-device checks of WebGL, browser speech, microphone permissions, touch,
+or accessibility behavior.
 
-## 📓 Things we learned building it
+## Runtime, privacy, and media boundaries
 
-- **Voice is a wonderful controller for a pre-reader — if it's forgiving.** The magic only works because the game never punishes silence or a mumble: fuzzy word-matching, generous aliases, gentle slow-downs, and a "we'll say it together" fallback. A single frustrating dead-end would end the whole thing for a 4-year-old.
-- **Chase the flicker to its real cause, don't paper over it.** A stubborn screen-flicker survived three "fixes" aimed at the wrong thing. The culprit was finally measured, not guessed: the animated sea was a raw shader that rendered **black through the HDR post-processing pipeline**, intermittently, worsening over a session. Rebuilding it on the engine's standard material path — the same one the roads and trees use — ended it. *Measure per-frame, isolate the layer, then fix.*
-- **Keep debug switches out of players' hands.** An early "smooth vs. broken" mystery turned out to be a QA URL flag (`?sim=`, `?interval=`) that had leaked into the link being played. Test flags now can't affect a real session.
-- **Design for the actual player.** Reshuffled vocab (no drilling), one decision on screen at a time, picture-and-word always paired, a sibling to ride with, and touch fallbacks so it works on the family iPad — small choices that decide whether a small child stays delighted.
+- **Procedural runtime:** the game constructs its runtime world, textures,
+  music, and sound effects in code. It does not load third-party 3D model,
+  image, or audio files.
+- **Committed documentation media:** the README and social preview use
+  screenshots and a gameplay GIF stored in `docs/img/`. Their capture basis and
+  rights status are documented in [ASSET_PROVENANCE.md](ASSET_PROVENANCE.md).
+- **Browser/provider boundary:** application code does not send voice audio or
+  transcripts to a Rae's Big Ride backend or analytics service. Browser speech
+  recognition, its provider, ordinary hosting logs, and device permissions are
+  outside this project's control. Read [PRIVACY.md](PRIVACY.md) before enabling
+  the microphone, especially when setting up the game for a child.
 
----
+## Project status and roadmap
 
-<div align="center">
+The repository is open source, but it is still an experimental personal
+project. Contributions are welcome when they are focused and privacy-aware;
+see [CONTRIBUTING.md](CONTRIBUTING.md). The currently open roadmap work is:
 
-Made with love for **Rae** (and her cousin **Zoe**) 💗💛
+- [#14 — configurable language and vocabulary packs](https://github.com/limchinhan123/raes-big-ride/issues/14)
+- [#15 — extract the child-friendly speech matcher only after real reuse](https://github.com/limchinhan123/raes-big-ride/issues/15)
 
-[MIT License](LICENSE) · [Third-party notices](THIRD_PARTY_NOTICES.md) · [Asset provenance](ASSET_PROVENANCE.md) · [Privacy](PRIVACY.md) · [Security](SECURITY.md)
+Neither item is a promise, and no npm package is published from this repository.
 
-</div>
+## Open-source documentation
+
+- [Architecture overview](docs/ARCHITECTURE.md)
+- [Contributing guide](CONTRIBUTING.md)
+- [Changelog](CHANGELOG.md)
+- [Release process](docs/RELEASING.md)
+- [Privacy policy](PRIVACY.md)
+- [Security policy](SECURITY.md)
+- [Third-party notices](THIRD_PARTY_NOTICES.md)
+- [Asset provenance](ASSET_PROVENANCE.md)
+- [MIT License](LICENSE)
+
+## License
+
+Rae's Big Ride is available under the [MIT License](LICENSE). Third-party
+software and font obligations are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
