@@ -92,7 +92,7 @@ She can say these **any time**, even mid-ride: **`left`** · **`right`** · **`f
 - **[three.js](https://threejs.org/)** — WebGL2, custom sky & water shaders, soft shadows, a bloom + colour-grade post pipeline
 - **Web Speech API** (`en-SG`) for recognition, **Web Speech Synthesis** for the friendly narrator
 - **Web Audio** — the soothing piano/pad score and every sound effect are synthesised live, and the music auto-ducks whenever the game is listening
-- **Vite** + vanilla ES modules · everything procedural · runs entirely in the browser (only single spoken words ever leave the device, to Chrome's speech service)
+- **Vite** + vanilla ES modules · everything procedural · app-side gameplay runs in the browser. The game code does not send speech transcripts to a Rae's Big Ride backend or analytics service; browser speech processing is governed by the browser and its provider. See [Privacy](PRIVACY.md).
 
 ```bash
 npm install
@@ -114,6 +114,6 @@ npm run dev     # then open http://localhost:5178 in Chrome
 
 Made with love for **Rae** (and her cousin **Zoe**) 💗💛
 
-[MIT License](LICENSE) · [Third-party notices](THIRD_PARTY_NOTICES.md) · [Asset provenance](ASSET_PROVENANCE.md)
+[MIT License](LICENSE) · [Third-party notices](THIRD_PARTY_NOTICES.md) · [Asset provenance](ASSET_PROVENANCE.md) · [Privacy](PRIVACY.md) · [Security](SECURITY.md)
 
 </div>
