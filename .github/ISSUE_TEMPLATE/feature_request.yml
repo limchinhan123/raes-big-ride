@@ -1,0 +1,46 @@
+name: Feature request
+description: Suggest a small, well-defined improvement.
+title: "[Feature]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This is a sole-maintainer personal project. Please describe the problem and a narrowly scoped outcome; proposals may not receive a response or be accepted.
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy and media check
+      options:
+        - label: This request does not include child data, voice recordings, transcripts, photos, or other personal data.
+          required: true
+        - label: I understand that any proposed committed media needs clear rights and an entry in ASSET_PROVENANCE.md.
+          required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+      description: Who encounters the problem and when?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed outcome
+      description: Keep it specific enough to evaluate without designing the entire implementation.
+    validations:
+      required: true
+  - type: dropdown
+    id: microphone-impact
+    attributes:
+      label: Does this affect microphone or speech behavior?
+      options:
+        - No
+        - Yes
+        - Unsure
+    validations:
+      required: true
+  - type: textarea
+    id: considerations
+    attributes:
+      label: Privacy, accessibility, or media considerations
+      description: If speech or microphone behavior changes, describe the privacy question. Note relevant keyboard, touch, voice-unavailable, or media-rights considerations.
