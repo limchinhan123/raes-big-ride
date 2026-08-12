@@ -70,7 +70,7 @@ One continuous ~5–7 minute ride from her neighbourhood to the playground, with
   </tr>
 </table>
 
-Every tree, building, character, texture, note of music, and sound effect is **generated in code** — there are no downloaded 3D models or images anywhere in this project.
+Every runtime tree, building, character, texture, note of music, and sound effect is **generated in code** — the game does not load downloaded 3D models, images, or audio files. This repository also includes committed documentation screenshots and a gameplay GIF; see [Asset provenance](ASSET_PROVENANCE.md).
 
 ---
 
@@ -113,5 +113,7 @@ npm run dev     # then open http://localhost:5178 in Chrome
 <div align="center">
 
 Made with love for **Rae** (and her cousin **Zoe**) 💗💛
+
+[MIT License](LICENSE) · [Third-party notices](THIRD_PARTY_NOTICES.md) · [Asset provenance](ASSET_PROVENANCE.md)
 
 </div>
