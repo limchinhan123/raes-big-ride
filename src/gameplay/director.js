@@ -240,6 +240,15 @@ export class Director {
     return !!(this.active && (this.active.targets?.length || this.active.kind === 'whee'));
   }
 
+  // Grown-up-only degraded-mode path. It deliberately injects the same first
+  // target as the existing Enter fallback, never a general answer chooser.
+  useCurrentFallbackAnswer() {
+    const text = this.active?.targets?.[0]?.say?.[0];
+    if (!text) return false;
+    this.speech.injectUtterance(text);
+    return true;
+  }
+
   #onHeard(text, isFinal = true) {
     if (this.finished) return;
     this.meter.poke(0.65);

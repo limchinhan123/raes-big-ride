@@ -27,22 +27,22 @@ export class SpeechManager {
 
     if (this.available) {
       this.rec = this.#makeRecognizer();
-
-      if (this.mobile) {
-        document.addEventListener('visibilitychange', () => {
-          if (document.hidden) {
-            this.#clearRestart();
-            this.#clearWatchdog();
-            const rec = this.rec;
-            this.running = false;
-            this.starting = false;
-            try { rec.abort(); } catch { /* already idle */ }
-            this.#renewRecognizer(rec);
-          } else {
-            this.#scheduleRestart(100);
-          }
-        });
-      }
+      this.onVisibilityChange = () => {
+        if (document.hidden) {
+          this.#clearRestart();
+          this.#clearWatchdog();
+          const rec = this.rec;
+          this.running = false;
+          this.starting = false;
+          try { this.mobile ? rec.abort() : rec.stop(); } catch { /* already idle */ }
+          // Mobile sessions are deliberately one-shot. Desktop retains its
+          // continuous recognizer and simply restarts it when the tab returns.
+          if (this.mobile) this.#renewRecognizer(rec);
+        } else {
+          this.#scheduleRestart(100);
+        }
+      };
+      document.addEventListener('visibilitychange', this.onVisibilityChange);
     }
   }
 
@@ -129,7 +129,10 @@ export class SpeechManager {
       this.#clearWatchdog();
       this.#emit('error', e.error);
       if (e.error === 'not-allowed' || e.error === 'service-not-allowed'
-        || e.error === 'language-not-supported') {
+        || e.error === 'language-not-supported' || e.error === 'audio-capture') {
+        // audio-capture means the browser has no usable mic device. Retrying
+        // cannot repair that state, so expose the same grown-up fallback as a
+        // denied permission instead of looping in the background.
         this.available = false;
         this.#clearRestart();
         this.#emit('mic-blocked', e.error);
@@ -266,6 +269,13 @@ export class SpeechManager {
 
   on(event, fn) {
     (this.listeners[event] ??= []).push(fn);
+    return () => {
+      const listeners = this.listeners[event];
+      if (!listeners) return;
+      const index = listeners.indexOf(fn);
+      if (index >= 0) listeners.splice(index, 1);
+      if (listeners.length === 0) delete this.listeners[event];
+    };
   }
 
   #emit(event, data) {

@@ -88,6 +88,30 @@ export function startGame() {
     });
     director.onBell = () => sfx.bell();
 
+    let fallbackTarget = null;
+    let fallbackVisible = false;
+    const syncVoiceFallback = () => {
+      if (speech.available) {
+        if (!fallbackVisible) return;
+        fallbackTarget = null;
+        fallbackVisible = false;
+        hud.clearVoiceUnavailable();
+        return;
+      }
+      const target = director.active?.targets?.[0] ?? null;
+      if (fallbackVisible && target === fallbackTarget) return;
+      fallbackTarget = target;
+      fallbackVisible = true;
+      const phrase = target?.say?.[0];
+      hud.setVoiceUnavailable(
+        'Voice input is unavailable. A grown-up can help with the card.',
+        phrase ? `Continue with “${phrase}”` : null,
+        target ? () => director.useCurrentFallbackAnswer() : null,
+      );
+    };
+    speech.on('mic-blocked', syncVoiceFallback);
+    syncVoiceFallback();
+
     if (params.has('jump')) {
       player.s = parseFloat(params.get('jump'));
       if (zoe) zoe.s = Math.max(0.5, player.s - 0.3);
@@ -130,9 +154,7 @@ export function startGame() {
     window.addEventListener('keydown', (e) => {
       if (e.key === 'ArrowLeft') player.setLane(player.laneTarget - 0.8);
       if (e.key === 'ArrowRight') player.setLane(player.laneTarget + 0.8);
-      if (e.key === 'Enter' && director.active?.targets?.length) {
-        speech.injectUtterance(director.active.targets[0].say[0]);
-      }
+      if (e.key === 'Enter') director.useCurrentFallbackAnswer();
       if (e.key === ' ' || e.code === 'Space') { e.preventDefault(); togglePause(); }
       if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') togglePause();
     });
@@ -261,6 +283,7 @@ export function startGame() {
       zoe?.update(dt, player);
       world.update(dt, t, player.s, player.pos);
       director.update(dt, t);
+      syncVoiceFallback();
       simDriver?.update(dt, t);
       director.carUpdate?.(dt);
       finale();
