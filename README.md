@@ -61,6 +61,31 @@ The pause menu also offers music volume, microphone sensitivity, helper-voice,
 restart, and walkthrough controls. Voice recognition is not guaranteed to work
 on every browser, operating system, network, microphone, or acoustic setting.
 
+## Early external feedback and reuse interest
+
+Rae's Big Ride is still an experimental personal project; it does not claim
+usage numbers or broad adoption. A [public LinkedIn discussion](https://www.linkedin.com/feed/update/urn:li:activity:7487335593715359744/)
+has nevertheless produced early, independent feedback:
+
+- **Samantha Goh** highlighted the voice-only controller and the project's
+  Singapore-English speech-recognition direction.
+- **Tuan-Vu Trinh** asked about customizing or forking the code for integration
+  into a teacher-game app. This is downstream reuse interest, not a confirmed
+  integration.
+- **Sam Yap** reported trying the app and said he planned to show it to his
+  child; **Oliver Trabhardt** reported that it worked very well on a phone.
+
+Separate feedback from a Singapore Codex/WhatsApp community has included
+parents planning to show the project to their children. That feedback is
+summarized only: no names, contact details, raw messages, or screenshots are
+published without permission.
+
+The project has also accepted a focused [external maintenance contribution
+(#25)](https://github.com/limchinhan123/raes-big-ride/pull/25), reviewed and
+merged through its public contribution workflow. Together, these are early
+signals of parent and educator relevance, mobile use, and reuse interest—not
+evidence of educational outcomes or widespread use.
+
 ## Engineering focus
 
 The repository keeps the experimental product small while exposing a few
