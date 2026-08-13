@@ -5,6 +5,11 @@
 ### Rae's Big Ride: voice-guided 3D ride through six Singapore-inspired scenes
 
 [![CI](https://github.com/limchinhan123/raes-big-ride/actions/workflows/ci.yml/badge.svg)](https://github.com/limchinhan123/raes-big-ride/actions/workflows/ci.yml)
+[![License](https://img.shields.io/github/license/limchinhan123/raes-big-ride?label=License)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/limchinhan123/raes-big-ride?label=Release)](https://github.com/limchinhan123/raes-big-ride/releases/tag/v1.0.0)
+[![OpenAI Codex assistance](https://img.shields.io/badge/maintenance-assisted%20by%20OpenAI%20Codex-412991?logo=openai&logoColor=white)](docs/releases/v1.0.0.md)
+
+<sub>Maintained and approved by Brandon Lim · Implementation and validation assisted by OpenAI Codex.</sub>
 
 **[Play the live demo](https://raes-big-ride.vercel.app/) · [Report an issue](https://github.com/limchinhan123/raes-big-ride/issues) · [Read the release notes](docs/releases/v1.0.0.md)**
 
