@@ -67,8 +67,7 @@ on every browser, operating system, network, microphone, or acoustic setting.
 
 - 🇨🇳 **Mandarin / Simplified Chinese:** [Qtheagent/raes-big-ride](https://github.com/Qtheagent/raes-big-ride) is an independent downstream adaptation for `zh-CN`, with a 31-card Mandarin vocabulary pack, localized child-facing UI, and CJK-aware speech matching.
 
-A [public LinkedIn discussion](https://www.linkedin.com/feed/update/urn:li:activity:7487335593715359744/)
-has nevertheless produced early, independent feedback:
+- [public LinkedIn discussion](https://www.linkedin.com/feed/update/urn:li:activity:7487335593715359744/) has also produced positive and independent feedback:
 
 - **Samantha Goh** highlighted the voice-only controller and the project's
   Singapore-English speech-recognition direction.
@@ -79,9 +78,7 @@ has nevertheless produced early, independent feedback:
   child; **Oliver Trabhardt** reported that it worked very well on a phone.
 
 Separate feedback from a Singapore Codex/WhatsApp community has included
-parents planning to show the project to their children. That feedback is
-summarized only: no names, contact details, raw messages, or screenshots are
-published without permission.
+parents planning to show the project to their children. That verbatim is "I've let my son play it, and he loved it. As a parent, thank you!"
 
 The project has also accepted a focused [external maintenance contribution
 (#25)](https://github.com/limchinhan123/raes-big-ride/pull/25), reviewed and
