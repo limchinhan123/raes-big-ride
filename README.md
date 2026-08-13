@@ -1,8 +1,8 @@
 <div align="center">
 
-# 🚲 Rae's Big Ride
+# 🚲 AI for early education. Building an open source AI-centric educational tool ecosystem for early child education in Singapore. 
 
-### A voice-guided 3D ride through six Singapore-inspired scenes
+### Rae's Big Ride: voice-guided 3D ride through six Singapore-inspired scenes
 
 [![CI](https://github.com/limchinhan123/raes-big-ride/actions/workflows/ci.yml/badge.svg)](https://github.com/limchinhan123/raes-big-ride/actions/workflows/ci.yml)
 
