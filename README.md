@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🚲 AI for early education. Building an open source AI-centric educational tool ecosystem for early child education in Singapore. 
+# Building an open source AI educational tool ecosystem for early child education!
 
 ### Rae's Big Ride: voice-guided 3D ride through six Singapore-inspired scenes
 
