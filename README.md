@@ -63,8 +63,10 @@ on every browser, operating system, network, microphone, or acoustic setting.
 
 ## Early external feedback and reuse interest
 
-Rae's Big Ride is still an experimental personal project; it does not claim
-usage numbers or broad adoption. A [public LinkedIn discussion](https://www.linkedin.com/feed/update/urn:li:activity:7487335593715359744/)
+Downstream adaptation
+🇨🇳 Mandarin / Simplified Chinese: Qtheagent/raes-big-ride is an independent downstream adaptation for zh-CN, with a 31-card Mandarin vocabulary pack, localized child-facing UI, and CJK-aware speech matching.
+
+A [public LinkedIn discussion](https://www.linkedin.com/feed/update/urn:li:activity:7487335593715359744/)
 has nevertheless produced early, independent feedback:
 
 - **Samantha Goh** highlighted the voice-only controller and the project's
