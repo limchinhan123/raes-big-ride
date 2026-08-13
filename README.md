@@ -1,6 +1,6 @@
 <div align="center">
 
-# Building an open source AI educational tool ecosystem for early child education!
+# Building an open-source AI educational tool ecosystem for early childhood education!
 
 ### Rae's Big Ride: voice-guided 3D ride through six Singapore-inspired scenes
 
@@ -13,7 +13,7 @@
 </div>
 
 Rae's Big Ride is a browser-based 3D adventure for young children. A player can
-ride through a neighbourhood, park connector, market, coast, city, and
+ride through a neighborhood, park connector, market, coast, city, and
 playground while naming the word shown on the current card. Voice is the
 primary interaction where browser speech recognition is available, with
 touch, keyboard, and grown-up-assist fallbacks when it is not.
@@ -39,7 +39,7 @@ browser; it is not a pre-baked cutscene.*
 
 The prompt pool has **83 distinct IDs** across animals, food, shapes, numbers,
 letters, everyday objects, and nature. The active deck is intentionally
-weighted to **149 entries**: 66 simpler prompts appear twice and 17 harder
+weighted to **149 entries**: 66 simpler prompts appear twice, and 17 harder
 prompts appear once. Repetition can therefore occur within a deck; this is not
 a fixed curriculum or a promise of educational outcomes.
 
@@ -54,7 +54,7 @@ available.
 | Voice available — desktop | Say the active card's target. `left`, `right`, `faster`, and `slower` are desktop-only voice commands. Say `ring ring` for the bell. |
 | Voice available — mobile | Say the active card's target; `ring ring` remains available. Mobile deliberately does **not** enable voice steering or speed commands. |
 | Touch | Tap the left or right third of the ride screen to steer. |
-| Keyboard / pause | `←` / `→` steer; `Enter` runs the grown-up current-card action; `Space`, `P`, `Esc`, or the pause button opens the pause controls. |
+| Keyboard/pause | `←` / `→` steer; `Enter` runs the grown-up current-card action; `Space`, `P`, `Esc`, or the pause button opens the pause controls. |
 | Voice unavailable | The game shows a grown-up action for the current card; it resolves that card's first configured target. Touch and keyboard controls remain available. |
 
 The pause menu also offers music volume, microphone sensitivity, helper-voice,
@@ -63,8 +63,9 @@ on every browser, operating system, network, microphone, or acoustic setting.
 
 ## Early external feedback and reuse interest
 
-Downstream adaptation
-🇨🇳 Mandarin / Simplified Chinese: Qtheagent/raes-big-ride is an independent downstream adaptation for zh-CN, with a 31-card Mandarin vocabulary pack, localized child-facing UI, and CJK-aware speech matching.
+### Downstream adaptation
+
+- 🇨🇳 **Mandarin / Simplified Chinese:** [Qtheagent/raes-big-ride](https://github.com/Qtheagent/raes-big-ride) is an independent downstream adaptation for `zh-CN`, with a 31-card Mandarin vocabulary pack, localized child-facing UI, and CJK-aware speech matching.
 
 A [public LinkedIn discussion](https://www.linkedin.com/feed/update/urn:li:activity:7487335593715359744/)
 has nevertheless produced early, independent feedback:
