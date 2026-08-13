@@ -211,8 +211,10 @@ export function startGame() {
             </label>
           </div>
           <div style="font-size:12px;color:#a89f8d;margin-top:14px;line-height:1.5;">
-            She can say <b>left</b>, <b>right</b>, <b>faster</b>, <b>slower</b> any time.<br>
-            Grown-up keys: ⬅ ➡ steer · Enter answers the card · Esc menu.
+            ${speech.mobile
+              // Voice steering/speed are desktop-only; keep this in sync with director.js.
+              ? 'Say the word on the card. Tap the left or right side of the screen to turn. Say <b>ring ring</b> for the bell.<br>Grown-up: Enter answers the card · tap ⏸ for this menu.'
+              : 'She can say <b>left</b>, <b>right</b>, <b>faster</b>, <b>slower</b> any time.<br>Grown-up keys: ⬅ ➡ steer · Enter answers the card · Esc menu.'}
           </div>
         </div>`;
       uiRoot.appendChild(pauseEl);
