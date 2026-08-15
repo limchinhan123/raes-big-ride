@@ -198,6 +198,30 @@ export class Hud {
       requestAnimationFrame(() => card.classList.add('show'));
       this.cards.push({ el: card, id: opt.clue.id });
     }
+    this.#fitCardText();
+  }
+
+  // On phone-width screens a two-card row can squeeze a card narrower than
+  // its content: a long word (WATERMELON, BUTTERFLY…) then spills over the
+  // sibling card or is cut off at the screen edge, and a counting glyph row
+  // (⭐⭐⭐⭐⭐) cannot wrap, so it overlaps the other card. Never show her a
+  // truncated word to read — step oversized text down until it fits its card.
+  // Widest first, and glyphs before words, so the reading word shrinks least.
+  #fitCardText() {
+    const fit = (selector, size, floor) => {
+      const els = this.cards
+        .map(({ el }) => el.querySelector(selector))
+        .sort((a, b) => b.scrollWidth - a.scrollWidth);
+      for (const el of els) {
+        let px = size;
+        while (el.scrollWidth > el.clientWidth && px > floor) {
+          px -= 2;
+          el.style.fontSize = `${px}px`;
+        }
+      }
+    };
+    fit('.glyph', 64, 24);
+    fit('.word', 40, 16);
   }
 
   // a friendly attention pulse when she's gone quiet — visual only, so it
