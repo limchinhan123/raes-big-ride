@@ -159,14 +159,11 @@ or accessibility behavior.
 
 ## Project status and roadmap
 
-The repository is open source, but it is still an experimental personal
-project. Contributions are welcome when they are focused and privacy-aware;
+The repository is open source. Contributions are welcome when they are focused and privacy-aware;
 see [CONTRIBUTING.md](CONTRIBUTING.md). The currently open roadmap work is:
 
 - [#14 — configurable language and vocabulary packs](https://github.com/limchinhan123/raes-big-ride/issues/14)
 - [#15 — extract the child-friendly speech matcher only after real reuse](https://github.com/limchinhan123/raes-big-ride/issues/15)
-
-Neither item is a promise, and no npm package is published from this repository.
 
 ## Open-source documentation
 
