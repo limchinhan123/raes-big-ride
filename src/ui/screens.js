@@ -7,12 +7,12 @@ import { matchWord } from '../speech/matcher.js';
 // her ride at the roadside. Ends with the choices + a ready mic.
 
 const COLORS = [
-  { id: 'pink', hex: 0xf291b4, css: '#f291b4' },
-  { id: 'sky', hex: 0x6fb7ea, css: '#6fb7ea' },
-  { id: 'white', hex: 0xf4f4f0, css: '#f4f4f0' },
-  { id: 'mint', hex: 0x8fd9b6, css: '#8fd9b6' },
-  { id: 'butter', hex: 0xffd166, css: '#ffd166' },
-  { id: 'lilac', hex: 0xb9a3e8, css: '#b9a3e8' },
+  { id: 'pink', label: 'Pink', hex: 0xf291b4, css: '#f291b4' },
+  { id: 'sky', label: 'Sky blue', hex: 0x6fb7ea, css: '#6fb7ea' },
+  { id: 'white', label: 'White', hex: 0xf4f4f0, css: '#f4f4f0' },
+  { id: 'mint', label: 'Mint green', hex: 0x8fd9b6, css: '#8fd9b6' },
+  { id: 'butter', label: 'Butter yellow', hex: 0xffd166, css: '#ffd166' },
+  { id: 'lilac', label: 'Lilac purple', hex: 0xb9a3e8, css: '#b9a3e8' },
 ];
 
 const CSS = `
@@ -189,7 +189,7 @@ export class StartFlow {
 
   #stepColor() {
     this.#clear();
-    const swatches = COLORS.map((c) => `<button class="swatch" data-c="${c.id}" style="background:${c.css}"></button>`).join('');
+    const swatches = COLORS.map((c) => `<button class="swatch" data-c="${c.id}" style="background:${c.css}" aria-label="${c.label} colour" title="${c.label}"></button>`).join('');
     this.root.innerHTML = `
       <div class="step-wrap">
         <div class="step-q">Pick your favourite colour!</div>
